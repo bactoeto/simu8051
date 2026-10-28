@@ -30,8 +30,32 @@ COMMANDS = (
     "run", "step", "cycle", "continue", "break", "delete",
     "regs", "sfr", "x", "dis", "reset", "load",
     "display", "undisplay", "enable", "disable", "info",
-    "trace", "help", "quit", "exit", "q",
+    "trace", "help", "quit",
 )
+ALIASES = {
+    "r": "run",
+    "s": "step",
+    "cy": "cycle",
+    "c": "continue",
+    "b": "break",
+    "d": "delete",
+    "clear": "delete",
+    "i": "info",
+    "reg": "regs",
+    "sf": "sfr",
+    "res": "reset",
+    "l": "load",
+    "disp": "display",
+    "und": "undisplay",
+    "en": "enable",
+    "on": "enable",
+    "off": "disable",
+    "t": "trace",
+    "h": "help",
+    "?": "help",
+    "q": "quit",
+    "exit": "quit",
+}
 REG_NAMES = ("A", "B", "PSW", "SP", "DPL", "DPH", "DPTR", "PC", "R0", "R1",
              "R2", "R3", "R4", "R5", "R6", "R7")
 SFR_NAMES = tuple(sorted(SFR))
@@ -58,8 +82,8 @@ def path_candidates(text: str) -> list[str]:
 def completion_candidates(tokens: list[str], text: str) -> list[str]:
     """Return possible completions for the word after `tokens`."""
     if not tokens:
-        return [name for name in COMMANDS if name.startswith(text)]
-    head = tokens[0].lower()
+        return [name for name in (*COMMANDS, *ALIASES) if name.startswith(text)]
+    head = ALIASES.get(tokens[0].lower(), tokens[0].lower())
     if head == "load" and len(tokens) == 1:
         return path_candidates(text)
     if head == "sfr" and len(tokens) == 1:
@@ -127,38 +151,49 @@ def _save_history() -> None:
         pass
 
 
+def prompt_text() -> str:
+    """Return the interactive prompt, coloured only on a terminal."""
+    if not sys.stdout.isatty() or os.environ.get("NO_COLOR") is not None:
+        return "8051> "
+    colour = "\033[32m8051>\033[0m "
+    if _readline is None:
+        return colour
+    #  and  tell readline which bytes do not occupy screen columns.
+    return "\001\033[32m\0028051>\001\033[0m\002 "
+
+
 HELP_TEXT = """\
 Commands
 
   Execution
-    run [N]                run N instructions; omit N to run until a stop
-    step [N]               execute N instructions (default 1)
-    cycle [N]              execute N machine cycles (default 1)
-    continue               resume after a stop
-    reset [cold]           reset; "cold" also clears IRAM and XDATA
+    run, r [N]             run N instructions; omit N to run until a stop
+    step, s [N]            execute N instructions (default 1)
+    cycle, cy [N]          execute N machine cycles (default 1)
+    continue, c            resume after a stop
+    reset, res [cold]      reset; "cold" also clears IRAM and XDATA
 
   Breakpoints
-    break ADDR             stop at PC ADDR, e.g. 0x0030
+    break, b ADDR          stop at PC ADDR, e.g. 0x0030
     break cycle N          stop at machine cycle N
-    delete                 clear all breakpoints
-    info break             list breakpoints
+    delete, d              clear all breakpoints
+    info, i break          list breakpoints
 
   Inspection
-    regs                   PC, ACC, B, PSW, SP, DPTR, cycle
-    sfr [NAME]             all common SFRs, or one by name
+    regs, reg              PC, ACC, B, PSW, SP, DPTR, cycle
+    sfr, sf [NAME]         all common SFRs, or one by name
     x SPACE ADDR [N]       dump N bytes (default 16)
     dis [ADDR] [N]         disassemble N instructions (default 8)
-    display SPEC           add a persistent display
-    undisplay N            remove display item N
-    enable N               turn display item N on
-    disable N              turn display item N off
+    display, disp SPEC     add a persistent display
+    undisplay, und N       remove display item N
+    enable, on N           turn display item N on
+    disable, off N         turn display item N off
     info display           list display items
 
   Other
-    load FILE              load another HEX file
-    trace on|off           print each executed instruction
-    help, ?                show this text
-    quit, exit, q          leave the simulator
+    load, l FILE           load another HEX file
+    trace, t on|off        print each executed instruction
+    help, h, ?             show this text
+    quit, q, exit          leave the simulator
 
   Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000
   Spaces    code | iram | sfr | direct | xdata | bit
@@ -412,9 +447,10 @@ class CLI:
         if not parts:
             return
         cmd, args = parts[0].lower(), parts[1:]
-        if cmd in {"quit", "exit", "q"}:
+        cmd = ALIASES.get(cmd, cmd)
+        if cmd == "quit":
             self.quit = True
-        elif cmd in {"help", "?"}:
+        elif cmd == "help":
             self.cmd_help()
         elif cmd == "step":
             self.cmd_step(args)
@@ -426,7 +462,7 @@ class CLI:
             self.cmd_continue()
         elif cmd == "break":
             self.cmd_break(args)
-        elif cmd in {"delete", "clear"}:
+        elif cmd == "delete":
             self.session.clear_breakpoints()
             print("breakpoints cleared")
         elif cmd == "info":
@@ -462,7 +498,7 @@ class CLI:
         print(HELP_TEXT)
         while not self.quit:
             try:
-                line = input("8051> ")
+                line = input(prompt_text())
             except KeyboardInterrupt:
                 print()
                 continue
