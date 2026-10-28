@@ -103,6 +103,7 @@ class CLITests(unittest.TestCase):
 
     def test_memory_and_control_commands(self):
         script = (
+            "x i 0 0x10\n"
             "x i 0x20 2\n"
             "x x 0 2\n"
             "x c 0 2\n"
@@ -129,8 +130,14 @@ class CLITests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         for expected in (
-            "i[0x0020..]", "x[0x0000..]", "c[0x0000..]",
-            "i[0x0020..]: 5A", "x[0x0000..]: 12 34", "c[0x0030..]: 00",
+            "0x00: 00 00 00 00 00 00 00 00",
+            "0x08: 00 00 00 00 00 00 00 00",
+            "0x20: 00 00",
+            "0x0000: 00 00",
+            "0x0000: 02 00",
+            "0x20: 5A",
+            "0x0000: 12 34",
+            "0x0030: 00",
             "0030  00", "reset", "loaded", "trace on",
         ):
             self.assertIn(expected, proc.stdout)
