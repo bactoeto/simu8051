@@ -113,8 +113,8 @@ def install_readline() -> None:
         pass
     _readline.set_history_length(1000)
     _readline.set_completer(_completer)
+    # GNU readline does not bind Tab to completion by default (unlike bash).
     _readline.parse_and_bind("tab: complete")
-    _readline.parse_and_bind("C-l: clear-screen")
     atexit.register(_save_history)
 
 
