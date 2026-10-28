@@ -13,13 +13,6 @@ and a plugin API for external stimuli.
 
 Python 3.11 or newer. The simulator uses only the standard library.
 
-No virtual environment is required. If one is preferred:
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m simu8051 firmware.hex
-```
-
 ## Usage
 
 Assemble with as31, then run the resulting HEX file:
@@ -173,30 +166,32 @@ Do not edit the generated tables by hand.
 ## Plugins
 
 A plugin is a Python file registered with `--plugin`; repeat the flag to run
-several plugins in command-line order.
-
-The simplest form is a `setup(ctx)` function:
+several plugins in command-line order. A file is one plugin and contains hook
+functions; no class or inheritance is involved.
 
 ```python
 from simu8051.plugin import PluginContext
 
 
-def at_cycle_100(ctx: PluginContext) -> None:
+def setup(ctx: PluginContext) -> None:
+    ctx.schedule_at(100, write_ram)
+
+
+def write_ram(ctx: PluginContext) -> None:
     ctx.write("iram", 0x20, 0x5A)
 
 
-def setup(ctx: PluginContext) -> None:
-    ctx.schedule_at(100, at_cycle_100)
+def on_cycle(ctx: PluginContext) -> None:
+    if ctx.cycle == 20:
+        ctx.drive_pin(3, 2, 0)
 ```
 
-`PluginContext` is created by the simulator and passed to `setup`. The import
+`PluginContext` is created by the simulator and passed to the hook. The import
 is for editor and type-checker support; it does not create the object.
-
-A `Plugin` subclass is also accepted; implement any of the hooks below.
 
 ### Hooks
 
-| Hook | Called |
+| Function | Called |
 |---|---|
 | `setup(ctx)` | once, when the plugin is loaded |
 | `on_start(ctx)` | once, when the session starts |
@@ -204,6 +199,9 @@ A `Plugin` subclass is also accepted; implement any of the hooks below.
 | `on_instruction(ctx, text)` | after each completed instruction |
 | `on_interrupt(ctx, name)` | when an interrupt is accepted |
 | `on_stop(ctx, reason)` | when the run stops |
+
+All hooks are optional, but a plugin file must define at least one. Functions
+with other names are ignored.
 
 ### Context API
 
