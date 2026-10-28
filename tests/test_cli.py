@@ -19,7 +19,7 @@ class CLITests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(proc.stdout.count("Commands"), 2)  # startup + help command
-        for text in ("break cycle N", "x SPACE ADDR [N]", "Numbers", "Display"):
+        for text in ("Command", "Aliases", "Arguments", "break cycle", "SPACE ADDR [N]", "Numbers", "Display"):
             self.assertIn(text, proc.stdout)
 
     def test_command_aliases(self):

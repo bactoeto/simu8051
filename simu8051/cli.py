@@ -169,42 +169,7 @@ def prompt_text() -> str:
 
 
 HELP_TEXT = """\
-Commands
-
-  Execution
-    run, r [N]                 run N instructions; omit N to run until a stop
-    step, s [N]                execute N instructions (default 1)
-    cycle, cy [N]              execute N machine cycles (default 1)
-    continue, c                resume after a stop
-    reset, res [cold]          reset; "cold" also clears IRAM and XDATA
-
-  Breakpoints
-    break, b ADDR              stop at PC ADDR, e.g. 0x0030
-    break cycle N              stop at machine cycle N
-    delete, del                clear all breakpoints
-    info, i break|display      list breakpoints or displays
-
-  Inspection
-    regs, reg                  PC, ACC, B, PSW, SP, DPTR, cycle
-    sfr, sf [NAME]             all common SFRs, or one by name
-    x SPACE ADDR [N]           dump N bytes (default 16)
-    disassemble, d [ADDR] [N]  disassemble N instructions (default 8)
-    display, dp SPEC           add a persistent display
-    undisplay, und N           remove display item N
-    enable, on N               turn display item N on
-    disable, off N             turn display item N off
-
-  Other
-    load, l FILE               load another HEX file
-    trace, t on|off            print each executed instruction
-    help, h, ?                 show this text
-    quit, q, exit              leave the simulator
-
-  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000
-  Spaces    code | iram | sfr | direct | xdata | bit
-  Display   regs | pc | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]
-  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit
-"""
+Commands\n\n  Command      Aliases  Arguments       Description\n  -------------------------------------------------\n\n  Execution\n  run          r        [N]             run N instructions; omit N to run until a stop\n  step         s        [N]             execute N instructions (default 1)\n  cycle        cy       [N]             execute N machine cycles (default 1)\n  continue     c                        resume after a stop\n  reset        res      [cold]          reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR            stop at PC ADDR, e.g. 0x0030\n  break cycle           N               stop at machine cycle N\n  delete       del                      clear all breakpoints\n  info         i        break|display   list breakpoints or displays\n\n  Inspection\n  regs         reg                      PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]          all common SFRs, or one by name\n  x                     SPACE ADDR [N]  dump N bytes (default 16)\n  disassemble  d        [ADDR] [N]      disassemble N instructions (default 8)\n  display      dp       SPEC            add a persistent display\n  undisplay    und      N               remove display item N\n  enable       on       N               turn display item N on\n  disable      off      N               turn display item N off\n\n  Other\n  load         l        FILE            load another HEX file\n  trace        t        on|off          print each executed instruction\n  help         h, ?                     show this text\n  quit         q, exit                  leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    code | iram | sfr | direct | xdata | bit\n  Display   regs | pc | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
 
 
 def parse_int(text: str) -> int:
