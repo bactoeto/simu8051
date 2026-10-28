@@ -2,8 +2,8 @@
 
 A plugin is a plain Python file with optional hook functions:
 
-    setup(ctx), on_start(ctx), on_cycle(ctx),
-    on_instruction(ctx, text), on_interrupt(ctx, name), on_stop(ctx, reason)
+    setup(ctx), on_cycle(ctx), on_instruction(ctx, text),
+    on_interrupt(ctx, name), on_stop(ctx, reason)
 
 It uses ``ctx`` to read/write memory, drive pins, schedule callbacks by
 machine cycle, or stop the run.
@@ -19,24 +19,20 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Optional, TypeAlias
+from typing import TYPE_CHECKING, Literal, Optional, TypeAlias
 
 if TYPE_CHECKING:
     from .core import Core
     from .step import Session
 
 Space: TypeAlias = Literal["code", "iram", "sfr", "direct", "xdata", "bit"]
-ScheduledCallback: TypeAlias = Callable[["PluginContext"], None]
 
 
 class Plugin:
-    """Base class for class-style plugins. Every hook is optional."""
+    """Base class for plugin adapters. Every hook is optional."""
 
     def setup(self, ctx: PluginContext) -> None:
         """Called once when the plugin is loaded."""
-
-    def on_start(self, ctx: PluginContext) -> None:
-        """Called once when the session starts."""
 
     def on_cycle(self, ctx: PluginContext) -> None:
         """Called after every machine cycle."""
@@ -58,33 +54,18 @@ class PluginContext:
     construct it themselves.
     """
 
-    def __init__(self, session: "Session", plugin: Optional[Plugin] = None):
-        self.session = session
-        self.plugin = plugin
-
-    @property
-    def core(self) -> "Core":
-        return self.session.core
+    def __init__(self, session: "Session"):
+        self._session = session
 
     @property
     def cycle(self) -> int:
         """Current machine cycle number."""
-        return self.core.cycle
-
-    @property
-    def oscillator_cycles(self) -> int:
-        """Current oscillator cycle count (12 per machine cycle)."""
-        return self.core.oscillator_cycles
+        return self._session.core.cycle
 
     @property
     def pc(self) -> int:
         """Current program counter."""
-        return self.core.pc
-
-    @property
-    def instr_pc(self) -> int:
-        """Address of the instruction currently/last executed."""
-        return self.core.instruction_pc
+        return self._session.core.pc
 
     def read(self, space: Space, address: int) -> int:
         """Read one byte from a memory space.
@@ -95,77 +76,65 @@ class PluginContext:
         """
         key = space.lower()
         if key == "code":
-            return self.core.read_code(address)
+            return self._session.core.read_code(address)
         if key == "iram":
-            return self.core.read_indirect(address)
+            return self._session.core.read_indirect(address)
         if key == "sfr":
-            return self.core.read_latch(address)
+            return self._session.core.read_latch(address)
         if key == "direct":
-            return self.core.read_direct(address)
+            return self._session.core.read_direct(address)
         if key == "xdata":
-            return self.core.read_xdata(address)
+            return self._session.core.read_xdata(address)
         if key == "bit":
-            return self.core.read_bit(address)
+            return self._session.core.read_bit(address)
         raise ValueError(f"unknown space {space!r}")
 
     def write(self, space: Space, address: int, value: int) -> None:
         """Write one byte to a memory space (see :meth:`read`)."""
         key = space.lower()
         if key == "code":
-            self.core.code[address & 0xFFFF] = value & 0xFF
+            self._session.core.code[address & 0xFFFF] = value & 0xFF
         elif key == "iram":
-            self.core.write_indirect(address, value)
+            self._session.core.write_indirect(address, value)
         elif key in {"sfr", "direct"}:
-            self.core.write_direct(address, value)
+            self._session.core.write_direct(address, value)
         elif key == "xdata":
-            self.core.write_xdata(address, value)
+            self._session.core.write_xdata(address, value)
         elif key == "bit":
-            self.core.write_bit(address, value)
+            self._session.core.write_bit(address, value)
         else:
             raise ValueError(f"unknown space {space!r}")
 
     def get_reg(self, name: str) -> int:
         """Read a register: A, B, PSW, SP, DPL, DPH, DPTR, PC, R0-R7."""
-        return self.core.get_reg(name)
+        return self._session.core.get_reg(name)
 
     def set_reg(self, name: str, value: int) -> None:
         """Write a register: A, B, PSW, SP, DPL, DPH, DPTR, PC, R0-R7."""
-        self.core.set_reg(name, value)
+        self._session.core.set_reg(name, value)
 
     def get_sfr(self, name_or_addr: str | int) -> int:
         """Read an SFR by name (``"P1"``) or address (``0x90``)."""
-        return self.core.get_sfr(name_or_addr)
+        return self._session.core.get_sfr(name_or_addr)
 
     def set_sfr(self, name_or_addr: str | int, value: int) -> None:
         """Write an SFR by name or address, including SFR side effects."""
-        self.core.set_sfr(name_or_addr, value)
+        self._session.core.set_sfr(name_or_addr, value)
 
     def drive_pin(self, port: int, bit: int, value: int) -> None:
         """Drive one external pin. ``port`` 0..3 or 0x80/0x90/0xA0/0xB0."""
-        self.core.drive_pin(port, bit, value)
-
-    def drive_port(self, port: int, mask: int, value: int) -> None:
-        """Drive pins selected by ``mask``; latch is not modified."""
-        self.core.drive_port(port, mask, value)
+        self._session.core.drive_pin(port, bit, value)
 
     def release_pin(self, port: int, mask: int = 0xFF) -> None:
         """Release external drive for the selected pins."""
-        self.core.release_pin(port, mask)
-
-    def schedule_at(self, cycle: int, callback: ScheduledCallback) -> None:
-        """Call ``callback(ctx)`` after machine cycle N.
-
-        The callback runs after the core tick for cycle N and before cycle
-        N+1. Its writes take effect on the next machine cycle.
-        """
-        self.session.schedule_at(cycle, callback)
+        self._session.core.release_pin(port, mask)
 
     def stop(self, reason: str = "plugin stop") -> None:
         """Request the session to stop."""
-        self.session.stop(reason)
+        self._session.stop(reason)
 
 
-HOOKS = ("setup", "on_start", "on_cycle", "on_instruction", "on_interrupt", "on_stop")
+HOOKS = ("setup", "on_cycle", "on_instruction", "on_interrupt", "on_stop")
 
 
 def _hook(module, name: str):
@@ -188,7 +157,7 @@ def load_plugin(path: str | Path, session: "Session") -> Plugin:
             f"({', '.join(HOOKS)})"
         )
     plugin = _FunctionPlugin(module)
-    plugin.setup(PluginContext(session, plugin))
+    plugin.setup(PluginContext(session))
     return plugin
 
 
@@ -205,9 +174,6 @@ class _FunctionPlugin(Plugin):
 
     def setup(self, ctx: PluginContext) -> None:
         self._call("setup", ctx)
-
-    def on_start(self, ctx: PluginContext) -> None:
-        self._call("on_start", ctx)
 
     def on_cycle(self, ctx: PluginContext) -> None:
         self._call("on_cycle", ctx)

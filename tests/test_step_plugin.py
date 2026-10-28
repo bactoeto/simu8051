@@ -36,9 +36,6 @@ class LifecyclePlugin(Plugin):
     def setup(self, ctx: PluginContext) -> None:
         self.events.append("setup")
 
-    def on_start(self, ctx: PluginContext) -> None:
-        self.events.append("start")
-
     def on_cycle(self, ctx: PluginContext) -> None:
         self.events.append("cycle")
 
@@ -59,15 +56,17 @@ class StepTests(unittest.TestCase):
         self.assertEqual(p.cycles, 1)
         self.assertEqual(p.instructions, 1)
 
-    def test_schedule_cycle_write(self):
+    def test_on_cycle_write(self):
         s = session_with([0x00, 0x00, 0x00])
         seen = {}
 
-        def cb(ctx):
-            ctx.write("iram", 0x20, 0x5A)
-            seen["cycle"] = ctx.cycle
+        class AtCycle(Plugin):
+            def on_cycle(self, ctx: PluginContext) -> None:
+                if ctx.cycle == 2:
+                    ctx.write("iram", 0x20, 0x5A)
+                    seen["cycle"] = ctx.cycle
 
-        s.schedule_at(2, cb)
+        s.plugins.append(AtCycle())
         s.step_cycle()
         s.step_cycle()
         self.assertEqual(s.core.read_direct(0x20), 0x5A)
@@ -84,11 +83,9 @@ class StepTests(unittest.TestCase):
     def test_lifecycle_hooks(self):
         s = session_with([0x00, 0x00])
         p = LifecyclePlugin()
-        p.setup(PluginContext(s, p))  # load_plugin() does this automatically
+        p.setup(PluginContext(s))  # load_plugin() does this automatically
         s.plugins.append(p)
-        s.start()
         s.step()
-        self.assertIn("start", p.events)
         self.assertIn("cycle", p.events)
         self.assertEqual(p.instructions, ["NOP"])
         s.run(max_instructions=1)
@@ -117,8 +114,9 @@ class StepTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "plug.py"
             path.write_text(
-                "def setup(ctx):\n"
-                "    ctx.schedule_at(1, lambda c: c.write('iram', 0x21, 0x77))\n"
+                "def on_cycle(ctx):\n"
+                "    if ctx.cycle == 1:\n"
+                "        ctx.write('iram', 0x21, 0x77)\n"
             )
             s = session_with([0x00, 0x00])
             p = load_plugin(path, s)
@@ -141,7 +139,6 @@ class StepTests(unittest.TestCase):
             s = session_with([0x00, 0x00])
             p = load_plugin(path, s)
             s.plugins.append(p)
-            s.start()
             s.step()
             s.run(max_instructions=1)
             calls = getattr(p, "_module").calls

@@ -11,7 +11,7 @@ from typing import Callable, Optional
 
 from .core import Core, Event, Trap
 from .hex import Image, decode_at, format_instruction
-from .plugin import Plugin, PluginContext, ScheduledCallback
+from .plugin import Plugin, PluginContext
 
 
 @dataclass
@@ -35,33 +35,17 @@ class Session:
     stop_reason: str = ""
     trace: bool = False
     trace_fn: Optional[Callable[[str], None]] = None
-    _scheduled: list[tuple[int, Callable]] = field(default_factory=list)
     _last_stop_pc: Optional[int] = None
     _stopped: bool = False
-    _started: bool = False
     _stop_dispatched: bool = False
 
     def __post_init__(self):
         if self.image is not None:
             self.core.load_image(self.image)
 
-    def start(self) -> None:
-        """Dispatch on_start to every plugin."""
-        if self._started:
-            return
-        for plugin, ctx in self._contexts():
-            plugin.on_start(ctx)
-        self._started = True
-
     # ------------------------------------------------------------------
     # plugin/session API
     # ------------------------------------------------------------------
-    def schedule_at(self, cycle: int, callback: ScheduledCallback) -> None:
-        """Call callback(ctx) after machine cycle N."""
-        if cycle < self.core.cycle:
-            raise ValueError("cannot schedule in the past")
-        self._scheduled.append((cycle, callback))
-
     def stop(self, reason: str = "plugin stop") -> None:
         """Request the run to stop with reason."""
         self.stop_reason = reason or "plugin stop"
@@ -85,7 +69,7 @@ class Session:
     # ------------------------------------------------------------------
     def _contexts(self):
         for plugin in self.plugins:
-            yield plugin, PluginContext(self, plugin)
+            yield plugin, PluginContext(self)
 
     def _dispatch_cycle(self) -> None:
         for plugin, ctx in self._contexts():
@@ -98,16 +82,6 @@ class Session:
     def _dispatch_interrupt(self, event: Event) -> None:
         for plugin, ctx in self._contexts():
             plugin.on_interrupt(ctx, str(event.detail))
-
-    def _run_scheduled(self) -> None:
-        while True:
-            due = [(c, cb) for c, cb in self._scheduled if c <= self.core.cycle]
-            if not due:
-                return
-            due.sort(key=lambda item: item[0])
-            self._scheduled = [(c, cb) for c, cb in self._scheduled if c > self.core.cycle]
-            for _, callback in due:
-                callback(PluginContext(self))
 
     def _handle_events(self, events: tuple[Event, ...]) -> None:
         for event in events:
@@ -154,7 +128,6 @@ class Session:
             self._dispatch_stop()
             return StepResult(start_pc, self.core.pc, self.core.cycle - start_cycle, self.stop_reason)
         self._handle_events(events)
-        self._run_scheduled()
         self._dispatch_cycle()
         self._check_cycle_break()
         return StepResult(
@@ -191,7 +164,6 @@ class Session:
             while True:
                 events = self.core.tick_cycle()
                 self._handle_events(events)
-                self._run_scheduled()
                 self._dispatch_cycle()
                 if self._check_cycle_break():
                     break
@@ -249,7 +221,6 @@ class Session:
     def reset(self, cold: bool = False) -> None:
         """Reset the core and clear scheduled callbacks and stop state."""
         self.core.reset(cold=cold)
-        self._scheduled.clear()
         self.stop_reason = ""
         self._stopped = False
         self._stop_dispatched = False

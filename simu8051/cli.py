@@ -522,7 +522,6 @@ def main(argv=None) -> int:
     try:
         for path in args.plugin:
             session.plugins.append(load_plugin(path, session))
-        session.start()
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

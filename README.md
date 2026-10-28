@@ -36,7 +36,6 @@ from simu8051 import Core, Session, load_hex
 image = load_hex("firmware.hex")
 core = Core()
 session = Session(core=core, image=image)
-session.start()
 result = session.run(max_cycles=100_000)
 print(core.pc, core.get_reg("A"), result.reason)
 ```
@@ -64,11 +63,10 @@ are internal and may change.
 
 | Member | Meaning |
 |---|---|
-| `start()` | dispatch `on_start` to plugins |
 | `step()` / `step_cycle()` | run one instruction / one machine cycle |
 | `run(max_cycles=None, max_instructions=None)` | run until a stop |
 | `break_at(addr)` / `break_at_cycle(n)` / `clear_breakpoints()` | breakpoints |
-| `schedule_at(cycle, callback)` / `stop(reason)` | plugin control |
+| `stop(reason)` | request the run to stop |
 | `reset(cold=False)` | reset the session |
 
 `step()` and `run()` return `StepResult` with `pc`, `next_pc`, `cycles`,
@@ -177,22 +175,17 @@ Define at least one of these functions; all take `ctx` as the first argument:
 | Function | Called |
 |---|---|
 | `setup(ctx)` | once, when the plugin is loaded |
-| `on_start(ctx)` | once, when the session starts |
 | `on_cycle(ctx)` | after every machine cycle |
 | `on_instruction(ctx, text)` | after each completed instruction |
 | `on_interrupt(ctx, name)` | when an interrupt is accepted |
 | `on_stop(ctx, reason)` | when the run stops |
 
-`on_cycle` runs every cycle. For a one-off action at a given cycle, call
-`ctx.schedule_at(N, fn)` inside `setup`: it calls `fn(ctx)` once, at cycle N.
+`on_cycle` runs every cycle. For a one-off action, compare `ctx.cycle`:
 
 ```python
-def setup(ctx):
-    ctx.schedule_at(100, write_ram)   # once, at cycle 100
-
-
-def write_ram(ctx):
-    ctx.write("iram", 0x20, 0x5A)
+def on_cycle(ctx):
+    if ctx.cycle == 100:
+        ctx.write("iram", 0x20, 0x5A)
 ```
 
 Do not write a class, do not inherit from `Plugin`, do not use `self`.
@@ -208,9 +201,7 @@ Do not write a class, do not inherit from `Plugin`, do not use `self`.
 | `ctx.get_reg(name)` / `ctx.set_reg(name, value)` | register access |
 | `ctx.get_sfr(name_or_addr)` / `ctx.set_sfr(name_or_addr, value)` | SFR access |
 | `ctx.drive_pin(port, bit, value)` | drive one external pin |
-| `ctx.drive_port(port, mask, value)` | drive selected port pins |
 | `ctx.release_pin(port, mask)` | release external drive |
-| `ctx.schedule_at(N, callback)` | call `callback(ctx)` once at cycle N |
 | `ctx.stop(reason)` | stop the session |
 
 Memory spaces:

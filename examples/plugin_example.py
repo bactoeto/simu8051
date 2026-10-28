@@ -11,22 +11,13 @@
 from simu8051.plugin import PluginContext
 
 
-def int0_low(ctx: PluginContext) -> None:
-    ctx.drive_pin(3, 2, 0)
-    print("cycle", ctx.cycle, "INT0 low")
-
-
-def int0_high(ctx: PluginContext) -> None:
-    ctx.drive_pin(3, 2, 1)
-    print("cycle", ctx.cycle, "INT0 high")
-
-
-def write_ram(ctx: PluginContext) -> None:
-    ctx.write("iram", 0x20, 0x5A)
-    print("cycle", ctx.cycle, "PC", hex(ctx.pc), "RAM[0x20] = 0x5A")
-
-
-def setup(ctx: PluginContext) -> None:
-    ctx.schedule_at(20, int0_low)
-    ctx.schedule_at(30, int0_high)
-    ctx.schedule_at(100, write_ram)
+def on_cycle(ctx: PluginContext) -> None:
+    if ctx.cycle == 20:
+        ctx.drive_pin(3, 2, 0)
+        print("cycle", ctx.cycle, "INT0 low")
+    elif ctx.cycle == 30:
+        ctx.drive_pin(3, 2, 1)
+        print("cycle", ctx.cycle, "INT0 high")
+    elif ctx.cycle == 100:
+        ctx.write("iram", 0x20, 0x5A)
+        print("cycle", ctx.cycle, "PC", hex(ctx.pc), "RAM[0x20] = 0x5A")
