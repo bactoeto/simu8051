@@ -1,0 +1,18 @@
+{
+  "note": "Manual readings from scan page images for rows the OCR could not match or misread. Page numbers are PDF pages of build/ism51.ocr.pdf (Table 10, pages 1-4).",
+  "rows": {
+    "ADDC A,Rn": {"bytes": 1, "cycles": 1, "page": 1, "reason": "OCR produced ADOC A,An"},
+    "INC A": {"bytes": 1, "cycles": 1, "page": 1, "reason": "OCR lost the operands"},
+    "RLC A": {"bytes": 1, "cycles": 1, "page": 2, "reason": "OCR produced RLO A"},
+    "MOV A,direct": {"bytes": 2, "cycles": 1, "page": 2, "reason": "OCR produced MOV = A.direct"},
+    "MOV@Ri,A": {"bytes": 1, "cycles": 1, "page": 2, "reason": "OCR lost the operand separator"},
+    "AJMP addr11": {"bytes": 2, "cycles": 2, "page": 3, "reason": "OCR produced AJMP = addri1"},
+    "CLR C": {"bytes": 1, "cycles": 1, "page": 3, "reason": "OCR produced CLA Cc"},
+    "JBC bit,rel": {"bytes": 3, "cycles": 2, "page": 3, "reason": "OCR produced bite!"},
+    "MOV DPTR,#data16": {"bytes": 3, "cycles": 2, "page": 3, "reason": "OCR produced datai6"},
+    "RET": {"bytes": 1, "cycles": 2, "page": 3, "reason": "OCR row lacked operands/columns"},
+    "RETI": {"bytes": 1, "cycles": 2, "page": 3, "reason": "OCR row lacked operands/columns"},
+    "SETB C": {"bytes": 1, "cycles": 1, "page": 3, "reason": "OCR read byte 4; page image shows 1"},
+    "NOP": {"bytes": 1, "cycles": 1, "page": 4, "reason": "OCR row lacked operands/columns"}
+  }
+}

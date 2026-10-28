@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+build/
+
+# third-party reference documents (Intel copyright)
+docs/

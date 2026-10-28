@@ -1,0 +1,1478 @@
+{
+  "schema": "simu8051.memory/1",
+  "device": "8051",
+  "sources": [
+    {
+      "id": "guide",
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF"
+    }
+  ],
+  "timing": {
+    "machine_cycle_oscillator_periods": 12,
+    "phase_model": "none",
+    "instruction_cycles": "fixed for every 8051 instruction",
+    "notes": [
+      "The simulator counts machine cycles; it does not expose S1-S6 phases.",
+      "The scanned Table 10 expresses timing as oscillator periods (12/24/48), equivalent to 1/2/4 machine cycles."
+    ],
+    "source": {
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+      "pdf_page": 15,
+      "section": "Timer/Interrupt timing and Table 10"
+    }
+  },
+  "spaces": {
+    "program": {
+      "range": [
+        "0x0000",
+        "0xFFFF"
+      ],
+      "size": 65536,
+      "on_chip_8051": 4096,
+      "reset_pc": "0x0000",
+      "vectors": {
+        "IE0": "0x0003",
+        "TF0": "0x000B",
+        "IE1": "0x0013",
+        "TF1": "0x001B",
+        "RI_TI": "0x0023"
+      },
+      "notes": [
+        "Program memory is separate from data memory.",
+        "The lower 4K may be on-chip on the 8051.",
+        "Interrupt vector addresses are fixed."
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 4
+      }
+    },
+    "iram": {
+      "range": [
+        "0x00",
+        "0x7F"
+      ],
+      "size": 128,
+      "regions": [
+        {
+          "name": "register_banks",
+          "range": [
+            "0x00",
+            "0x1F"
+          ],
+          "banks": 4,
+          "note": "8 registers per bank"
+        },
+        {
+          "name": "bit_addressable",
+          "range": [
+            "0x20",
+            "0x2F"
+          ],
+          "bits": 128
+        },
+        {
+          "name": "scratch_pad",
+          "range": [
+            "0x30",
+            "0x7F"
+          ]
+        }
+      ],
+      "direct_and_indirect": true,
+      "upper_128": "not implemented on 8051; indirect access to 0x80-0xFF is not internal RAM",
+      "notes": [
+        "The 8051 has 128 bytes of on-chip RAM; the 8052 has 256.",
+        "Stack operations use indirect addressing."
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 5
+      }
+    },
+    "sfr": {
+      "range": [
+        "0x80",
+        "0xFF"
+      ],
+      "direct_only": true,
+      "implemented_count": 21,
+      "address_rule": "SFRs are accessed by direct addressing; bit-addressable SFR addresses end in 0 or 8",
+      "unimplemented_policy": "read 0xFF, write ignored",
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_pages": [
+          9,
+          11
+        ]
+      }
+    },
+    "xdata": {
+      "range": [
+        "0x0000",
+        "0xFFFF"
+      ],
+      "size": 65536,
+      "access": "MOVX @DPTR or MOVX @Ri",
+      "movx_ri_high_byte": "P2 latch",
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 5
+      }
+    },
+    "bit": {
+      "range": [
+        "0x00",
+        "0xFF"
+      ],
+      "size": 256,
+      "ram_bits": {
+        "range": [
+          "0x00",
+          "0x7F"
+        ],
+        "maps_to": [
+          "0x20",
+          "0x2F"
+        ],
+        "formula": "byte = 0x20 + (bit // 8); mask = 1 << (bit % 8)"
+      },
+      "sfr_bits": {
+        "range": [
+          "0x80",
+          "0xFF"
+        ],
+        "rule": "bit address = SFR byte address + bit position; only bit-addressable SFRs",
+        "sfrs": [
+          "P0",
+          "TCON",
+          "P1",
+          "SCON",
+          "P2",
+          "IE",
+          "P3",
+          "IP",
+          "PSW",
+          "ACC",
+          "B"
+        ]
+      },
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_pages": [
+          7,
+          11
+        ]
+      }
+    }
+  },
+  "sfrs": [
+    {
+      "name": "P0",
+      "address": "0x80",
+      "reset": "0xFF",
+      "description": "Port 0 latch.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "P0.0",
+          "position": 0,
+          "reset": 1,
+          "address": "0x80",
+          "description": ""
+        },
+        {
+          "name": "P0.1",
+          "position": 1,
+          "reset": 1,
+          "address": "0x81",
+          "description": ""
+        },
+        {
+          "name": "P0.2",
+          "position": 2,
+          "reset": 1,
+          "address": "0x82",
+          "description": ""
+        },
+        {
+          "name": "P0.3",
+          "position": 3,
+          "reset": 1,
+          "address": "0x83",
+          "description": ""
+        },
+        {
+          "name": "P0.4",
+          "position": 4,
+          "reset": 1,
+          "address": "0x84",
+          "description": ""
+        },
+        {
+          "name": "P0.5",
+          "position": 5,
+          "reset": 1,
+          "address": "0x85",
+          "description": ""
+        },
+        {
+          "name": "P0.6",
+          "position": 6,
+          "reset": 1,
+          "address": "0x86",
+          "description": ""
+        },
+        {
+          "name": "P0.7",
+          "position": 7,
+          "reset": 1,
+          "address": "0x87",
+          "description": ""
+        }
+      ],
+      "side_effects": [
+        "write updates latch; pin follows latch unless externally driven"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "SP",
+      "address": "0x81",
+      "reset": "0x07",
+      "description": "Stack Pointer.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [
+        "PUSH pre-increments; POP post-decrements"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "DPL",
+      "address": "0x82",
+      "reset": "0x00",
+      "description": "Data Pointer low byte.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "DPH",
+      "address": "0x83",
+      "reset": "0x00",
+      "description": "Data Pointer high byte.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "PCON",
+      "address": "0x87",
+      "reset": "0x00",
+      "description": "Power Control.",
+      "bit_addressable": false,
+      "bits": [
+        {
+          "name": "IDL",
+          "position": 0,
+          "reset": 0,
+          "address": null,
+          "description": "Idle mode bit."
+        },
+        {
+          "name": "PD",
+          "position": 1,
+          "reset": 0,
+          "address": null,
+          "description": "Power-down bit (CHMOS)."
+        },
+        {
+          "name": "GF0",
+          "position": 2,
+          "reset": 0,
+          "address": null,
+          "description": "General purpose flag 0."
+        },
+        {
+          "name": "GF1",
+          "position": 3,
+          "reset": 0,
+          "address": null,
+          "description": "General purpose flag 1."
+        },
+        {
+          "name": "",
+          "position": 4,
+          "reset": 0,
+          "address": null,
+          "description": ""
+        },
+        {
+          "name": "",
+          "position": 5,
+          "reset": 0,
+          "address": null,
+          "description": ""
+        },
+        {
+          "name": "",
+          "position": 6,
+          "reset": 0,
+          "address": null,
+          "description": ""
+        },
+        {
+          "name": "SMOD",
+          "position": 7,
+          "reset": 0,
+          "address": null,
+          "description": "Double baud rate bit."
+        }
+      ],
+      "side_effects": [
+        "IDL stops instruction fetch; PD stops the oscillator (not simulated)"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 12
+      },
+      "reset_undefined_mask": "0x7F (HMOS) / 0x0F (CHMOS)",
+      "reset_variants": {
+        "HMOS": "0x00 with bits 6-0 undefined",
+        "CHMOS": "0x00 with bits 3-0 undefined"
+      },
+      "reserved_bits": [
+        4,
+        5,
+        6
+      ]
+    },
+    {
+      "name": "TCON",
+      "address": "0x88",
+      "reset": "0x00",
+      "description": "Timer/Counter Control.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "IT0",
+          "position": 0,
+          "reset": 0,
+          "address": "0x88",
+          "description": "External interrupt 0 type: 0 level, 1 falling edge."
+        },
+        {
+          "name": "IE0",
+          "position": 1,
+          "reset": 0,
+          "address": "0x89",
+          "description": "External interrupt 0 edge flag; cleared by hardware on vector."
+        },
+        {
+          "name": "IT1",
+          "position": 2,
+          "reset": 0,
+          "address": "0x8A",
+          "description": "External interrupt 1 type: 0 level, 1 falling edge."
+        },
+        {
+          "name": "IE1",
+          "position": 3,
+          "reset": 0,
+          "address": "0x8B",
+          "description": "External interrupt 1 edge flag; cleared by hardware on vector."
+        },
+        {
+          "name": "TR0",
+          "position": 4,
+          "reset": 0,
+          "address": "0x8C",
+          "description": "Timer 0 run control."
+        },
+        {
+          "name": "TF0",
+          "position": 5,
+          "reset": 0,
+          "address": "0x8D",
+          "description": "Timer 0 overflow flag; cleared by hardware on vector."
+        },
+        {
+          "name": "TR1",
+          "position": 6,
+          "reset": 0,
+          "address": "0x8E",
+          "description": "Timer 1 run control."
+        },
+        {
+          "name": "TF1",
+          "position": 7,
+          "reset": 0,
+          "address": "0x8F",
+          "description": "Timer 1 overflow flag; cleared by hardware on vector."
+        }
+      ],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 15
+      }
+    },
+    {
+      "name": "TMOD",
+      "address": "0x89",
+      "reset": "0x00",
+      "description": "Timer/Counter Mode Control.",
+      "bit_addressable": false,
+      "bits": [
+        {
+          "name": "M0_0",
+          "position": 0,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 0 mode bit 0."
+        },
+        {
+          "name": "M1_0",
+          "position": 1,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 0 mode bit 1."
+        },
+        {
+          "name": "C/T0",
+          "position": 2,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 0 counter/timer select."
+        },
+        {
+          "name": "GATE0",
+          "position": 3,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 0 gate control."
+        },
+        {
+          "name": "M0_1",
+          "position": 4,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 1 mode bit 0."
+        },
+        {
+          "name": "M1_1",
+          "position": 5,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 1 mode bit 1."
+        },
+        {
+          "name": "C/T1",
+          "position": 6,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 1 counter/timer select."
+        },
+        {
+          "name": "GATE1",
+          "position": 7,
+          "reset": 0,
+          "address": null,
+          "description": "Timer 1 gate control."
+        }
+      ],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 15
+      }
+    },
+    {
+      "name": "TL0",
+      "address": "0x8A",
+      "reset": "0x00",
+      "description": "Timer 0 low byte.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "TL1",
+      "address": "0x8B",
+      "reset": "0x00",
+      "description": "Timer 1 low byte.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "TH0",
+      "address": "0x8C",
+      "reset": "0x00",
+      "description": "Timer 0 high byte.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "TH1",
+      "address": "0x8D",
+      "reset": "0x00",
+      "description": "Timer 1 high byte.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "P1",
+      "address": "0x90",
+      "reset": "0xFF",
+      "description": "Port 1 latch.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "P1.0",
+          "position": 0,
+          "reset": 1,
+          "address": "0x90",
+          "description": ""
+        },
+        {
+          "name": "P1.1",
+          "position": 1,
+          "reset": 1,
+          "address": "0x91",
+          "description": ""
+        },
+        {
+          "name": "P1.2",
+          "position": 2,
+          "reset": 1,
+          "address": "0x92",
+          "description": ""
+        },
+        {
+          "name": "P1.3",
+          "position": 3,
+          "reset": 1,
+          "address": "0x93",
+          "description": ""
+        },
+        {
+          "name": "P1.4",
+          "position": 4,
+          "reset": 1,
+          "address": "0x94",
+          "description": ""
+        },
+        {
+          "name": "P1.5",
+          "position": 5,
+          "reset": 1,
+          "address": "0x95",
+          "description": ""
+        },
+        {
+          "name": "P1.6",
+          "position": 6,
+          "reset": 1,
+          "address": "0x96",
+          "description": ""
+        },
+        {
+          "name": "P1.7",
+          "position": 7,
+          "reset": 1,
+          "address": "0x97",
+          "description": ""
+        }
+      ],
+      "side_effects": [
+        "write updates latch; pin follows latch unless externally driven"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "SCON",
+      "address": "0x98",
+      "reset": "0x00",
+      "description": "Serial Port Control.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "RI",
+          "position": 0,
+          "reset": 0,
+          "address": "0x98",
+          "description": "Receive interrupt flag (plain bit in this simulator)."
+        },
+        {
+          "name": "TI",
+          "position": 1,
+          "reset": 0,
+          "address": "0x99",
+          "description": "Transmit interrupt flag (plain bit in this simulator)."
+        },
+        {
+          "name": "RB8",
+          "position": 2,
+          "reset": 0,
+          "address": "0x9A",
+          "description": "Ninth received data bit / stop bit."
+        },
+        {
+          "name": "TB8",
+          "position": 3,
+          "reset": 0,
+          "address": "0x9B",
+          "description": "Ninth transmitted data bit."
+        },
+        {
+          "name": "REN",
+          "position": 4,
+          "reset": 0,
+          "address": "0x9C",
+          "description": "Receive enable."
+        },
+        {
+          "name": "SM2",
+          "position": 5,
+          "reset": 0,
+          "address": "0x9D",
+          "description": "Multiprocessor mode control."
+        },
+        {
+          "name": "SM1",
+          "position": 6,
+          "reset": 0,
+          "address": "0x9E",
+          "description": "Serial mode bit 1."
+        },
+        {
+          "name": "SM0",
+          "position": 7,
+          "reset": 0,
+          "address": "0x9F",
+          "description": "Serial mode bit 0."
+        }
+      ],
+      "side_effects": [
+        "plain storage only; no serial shift, baud rate or serial interrupt"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 20
+      }
+    },
+    {
+      "name": "SBUF",
+      "address": "0x99",
+      "reset": "indeterminate",
+      "description": "Serial Data Buffer.",
+      "bit_addressable": false,
+      "bits": [],
+      "side_effects": [
+        "plain storage only; no receive/transmit side effect"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "P2",
+      "address": "0xA0",
+      "reset": "0xFF",
+      "description": "Port 2 latch.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "P2.0",
+          "position": 0,
+          "reset": 1,
+          "address": "0xA0",
+          "description": ""
+        },
+        {
+          "name": "P2.1",
+          "position": 1,
+          "reset": 1,
+          "address": "0xA1",
+          "description": ""
+        },
+        {
+          "name": "P2.2",
+          "position": 2,
+          "reset": 1,
+          "address": "0xA2",
+          "description": ""
+        },
+        {
+          "name": "P2.3",
+          "position": 3,
+          "reset": 1,
+          "address": "0xA3",
+          "description": ""
+        },
+        {
+          "name": "P2.4",
+          "position": 4,
+          "reset": 1,
+          "address": "0xA4",
+          "description": ""
+        },
+        {
+          "name": "P2.5",
+          "position": 5,
+          "reset": 1,
+          "address": "0xA5",
+          "description": ""
+        },
+        {
+          "name": "P2.6",
+          "position": 6,
+          "reset": 1,
+          "address": "0xA6",
+          "description": ""
+        },
+        {
+          "name": "P2.7",
+          "position": 7,
+          "reset": 1,
+          "address": "0xA7",
+          "description": ""
+        }
+      ],
+      "side_effects": [
+        "high byte of MOVX @Ri address comes from P2 latch"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "IE",
+      "address": "0xA8",
+      "reset": "0x00",
+      "description": "Interrupt Enable.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "EX0",
+          "position": 0,
+          "reset": 0,
+          "address": "0xA8",
+          "description": "Enable external interrupt 0."
+        },
+        {
+          "name": "ET0",
+          "position": 1,
+          "reset": 0,
+          "address": "0xA9",
+          "description": "Enable timer 0 interrupt."
+        },
+        {
+          "name": "EX1",
+          "position": 2,
+          "reset": 0,
+          "address": "0xAA",
+          "description": "Enable external interrupt 1."
+        },
+        {
+          "name": "ET1",
+          "position": 3,
+          "reset": 0,
+          "address": "0xAB",
+          "description": "Enable timer 1 interrupt."
+        },
+        {
+          "name": "ES",
+          "position": 4,
+          "reset": 0,
+          "address": "0xAC",
+          "description": "Enable serial interrupt (no serial interrupt source in this simulator)."
+        },
+        {
+          "name": "",
+          "position": 5,
+          "reset": 0,
+          "address": "0xAD",
+          "description": "Reserved on 8051; ET2 on 8052."
+        },
+        {
+          "name": "",
+          "position": 6,
+          "reset": 0,
+          "address": "0xAE",
+          "description": "Reserved."
+        },
+        {
+          "name": "EA",
+          "position": 7,
+          "reset": 0,
+          "address": "0xAF",
+          "description": "Enable all interrupts."
+        }
+      ],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 13
+      },
+      "reset_undefined_mask": "0x60",
+      "reserved_bits": [
+        5,
+        6
+      ]
+    },
+    {
+      "name": "P3",
+      "address": "0xB0",
+      "reset": "0xFF",
+      "description": "Port 3 latch.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "P3.0",
+          "position": 0,
+          "reset": 1,
+          "address": "0xB0",
+          "description": "RXD (serial receive)."
+        },
+        {
+          "name": "P3.1",
+          "position": 1,
+          "reset": 1,
+          "address": "0xB1",
+          "description": "TXD (serial transmit)."
+        },
+        {
+          "name": "P3.2",
+          "position": 2,
+          "reset": 1,
+          "address": "0xB2",
+          "description": "INT0 external interrupt 0."
+        },
+        {
+          "name": "P3.3",
+          "position": 3,
+          "reset": 1,
+          "address": "0xB3",
+          "description": "INT1 external interrupt 1."
+        },
+        {
+          "name": "P3.4",
+          "position": 4,
+          "reset": 1,
+          "address": "0xB4",
+          "description": "T0 external timer 0 input."
+        },
+        {
+          "name": "P3.5",
+          "position": 5,
+          "reset": 1,
+          "address": "0xB5",
+          "description": "T1 external timer 1 input."
+        },
+        {
+          "name": "P3.6",
+          "position": 6,
+          "reset": 1,
+          "address": "0xB6",
+          "description": "WR external data write strobe."
+        },
+        {
+          "name": "P3.7",
+          "position": 7,
+          "reset": 1,
+          "address": "0xB7",
+          "description": "RD external data read strobe."
+        }
+      ],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "IP",
+      "address": "0xB8",
+      "reset": "0x00",
+      "description": "Interrupt Priority.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "PX0",
+          "position": 0,
+          "reset": 0,
+          "address": "0xB8",
+          "description": "External interrupt 0 priority."
+        },
+        {
+          "name": "PT0",
+          "position": 1,
+          "reset": 0,
+          "address": "0xB9",
+          "description": "Timer 0 priority."
+        },
+        {
+          "name": "PX1",
+          "position": 2,
+          "reset": 0,
+          "address": "0xBA",
+          "description": "External interrupt 1 priority."
+        },
+        {
+          "name": "PT1",
+          "position": 3,
+          "reset": 0,
+          "address": "0xBB",
+          "description": "Timer 1 priority."
+        },
+        {
+          "name": "PS",
+          "position": 4,
+          "reset": 0,
+          "address": "0xBC",
+          "description": "Serial interrupt priority."
+        },
+        {
+          "name": "",
+          "position": 5,
+          "reset": 0,
+          "address": "0xBD",
+          "description": "Reserved on 8051; PT2 on 8052."
+        },
+        {
+          "name": "",
+          "position": 6,
+          "reset": 0,
+          "address": "0xBE",
+          "description": ""
+        },
+        {
+          "name": "",
+          "position": 7,
+          "reset": 0,
+          "address": "0xBF",
+          "description": ""
+        }
+      ],
+      "side_effects": [],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 14
+      },
+      "reset_undefined_mask": "0xE0",
+      "reserved_bits": [
+        5,
+        6,
+        7
+      ]
+    },
+    {
+      "name": "PSW",
+      "address": "0xD0",
+      "reset": "0x00",
+      "description": "Program Status Word.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "P",
+          "position": 0,
+          "reset": 0,
+          "address": "0xD0",
+          "description": "Parity flag; maintained by hardware from ACC."
+        },
+        {
+          "name": "F1",
+          "position": 1,
+          "reset": 0,
+          "address": "0xD1",
+          "description": "User flag F1."
+        },
+        {
+          "name": "OV",
+          "position": 2,
+          "reset": 0,
+          "address": "0xD2",
+          "description": "Overflow flag."
+        },
+        {
+          "name": "RS0",
+          "position": 3,
+          "reset": 0,
+          "address": "0xD3",
+          "description": "Register bank select bit 0."
+        },
+        {
+          "name": "RS1",
+          "position": 4,
+          "reset": 0,
+          "address": "0xD4",
+          "description": "Register bank select bit 1."
+        },
+        {
+          "name": "F0",
+          "position": 5,
+          "reset": 0,
+          "address": "0xD5",
+          "description": "User flag F0."
+        },
+        {
+          "name": "AC",
+          "position": 6,
+          "reset": 0,
+          "address": "0xD6",
+          "description": "Auxiliary carry flag."
+        },
+        {
+          "name": "CY",
+          "position": 7,
+          "reset": 0,
+          "address": "0xD7",
+          "description": "Carry flag."
+        }
+      ],
+      "side_effects": [
+        "RS1/RS0 select the active register bank",
+        "writing PSW changes C/AC/F0/RS1/RS0/OV/F1; P is maintained from ACC",
+        "direct writes to PSW or PSW bits affect flags even from generic MOV/ANL/ORL/XRL/INC/DEC/POP/XCH forms"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 12
+      }
+    },
+    {
+      "name": "ACC",
+      "address": "0xE0",
+      "reset": "0x00",
+      "description": "Accumulator.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "ACC.0",
+          "position": 0,
+          "reset": 0,
+          "address": "0xE0",
+          "description": ""
+        },
+        {
+          "name": "ACC.1",
+          "position": 1,
+          "reset": 0,
+          "address": "0xE1",
+          "description": ""
+        },
+        {
+          "name": "ACC.2",
+          "position": 2,
+          "reset": 0,
+          "address": "0xE2",
+          "description": ""
+        },
+        {
+          "name": "ACC.3",
+          "position": 3,
+          "reset": 0,
+          "address": "0xE3",
+          "description": ""
+        },
+        {
+          "name": "ACC.4",
+          "position": 4,
+          "reset": 0,
+          "address": "0xE4",
+          "description": ""
+        },
+        {
+          "name": "ACC.5",
+          "position": 5,
+          "reset": 0,
+          "address": "0xE5",
+          "description": ""
+        },
+        {
+          "name": "ACC.6",
+          "position": 6,
+          "reset": 0,
+          "address": "0xE6",
+          "description": ""
+        },
+        {
+          "name": "ACC.7",
+          "position": 7,
+          "reset": 0,
+          "address": "0xE7",
+          "description": ""
+        }
+      ],
+      "side_effects": [
+        "PSW.P is updated whenever ACC is written"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    },
+    {
+      "name": "B",
+      "address": "0xF0",
+      "reset": "0x00",
+      "description": "B Register.",
+      "bit_addressable": true,
+      "bits": [
+        {
+          "name": "B.0",
+          "position": 0,
+          "reset": 0,
+          "address": "0xF0",
+          "description": ""
+        },
+        {
+          "name": "B.1",
+          "position": 1,
+          "reset": 0,
+          "address": "0xF1",
+          "description": ""
+        },
+        {
+          "name": "B.2",
+          "position": 2,
+          "reset": 0,
+          "address": "0xF2",
+          "description": ""
+        },
+        {
+          "name": "B.3",
+          "position": 3,
+          "reset": 0,
+          "address": "0xF3",
+          "description": ""
+        },
+        {
+          "name": "B.4",
+          "position": 4,
+          "reset": 0,
+          "address": "0xF4",
+          "description": ""
+        },
+        {
+          "name": "B.5",
+          "position": 5,
+          "reset": 0,
+          "address": "0xF5",
+          "description": ""
+        },
+        {
+          "name": "B.6",
+          "position": 6,
+          "reset": 0,
+          "address": "0xF6",
+          "description": ""
+        },
+        {
+          "name": "B.7",
+          "position": 7,
+          "reset": 0,
+          "address": "0xF7",
+          "description": ""
+        }
+      ],
+      "side_effects": [
+        "used by MUL and DIV"
+      ],
+      "source": {
+        "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+        "pdf_page": 9
+      }
+    }
+  ],
+  "reset": {
+    "pc": "0x0000",
+    "sp": "0x07",
+    "acc": "0x00",
+    "b": "0x00",
+    "psw": "0x00",
+    "dptr": "0x0000",
+    "p0": "0xFF",
+    "p1": "0xFF",
+    "p2": "0xFF",
+    "p3": "0xFF",
+    "ie": "0x00",
+    "ip": "0x00",
+    "tmod": "0x00",
+    "tcon": "0x00",
+    "th0": "0x00",
+    "tl0": "0x00",
+    "th1": "0x00",
+    "tl1": "0x00",
+    "scon": "0x00",
+    "sbuf": "indeterminate",
+    "pcon": "0x00",
+    "internal_ram": "undefined by the datasheet",
+    "external_ram": "undefined by the datasheet",
+    "undefined_masks": {
+      "IP": "0xE0 (bits 7-5 undefined on 8051)",
+      "IE": "0x60 (bits 6-5 undefined on 8051)",
+      "PCON": "0x7F (HMOS) / 0x0F (CHMOS)"
+    },
+    "notes": [
+      "Table 2 of the guide gives SFR values after power-on or reset.",
+      "Internal RAM contents are not specified by the guide; a simulator must choose a deterministic policy.",
+      "The 8051 has no Timer 2 SFRs."
+    ],
+    "source": {
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+      "pdf_page": 10,
+      "table": "Table 2"
+    }
+  },
+  "ports": {
+    "latches": [
+      "P0",
+      "P1",
+      "P2",
+      "P3"
+    ],
+    "reset_latch": "0xFF",
+    "read_pin": "ordinary byte reads and bit tests of P0-P3 return the pin level",
+    "read_latch": "read-modify-write instructions read the latch",
+    "write": "writes update the latch; pins follow at the machine-cycle boundary",
+    "external_drive": "simulator/plugin may override pin levels; latch is not modified",
+    "movx_ri_high_byte": "P2 latch, not P2 pin",
+    "electrical_model": "none (no pull-up strength, open drain or floating input)",
+    "source": {
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+      "pdf_pages": [
+        7,
+        9
+      ]
+    }
+  },
+  "stack": {
+    "location": "internal RAM",
+    "reset_sp": "0x07",
+    "push_order": "SP = SP + 1; write to (SP)",
+    "pop_order": "read (SP); SP = SP - 1",
+    "sp_width": 8,
+    "wraps": true,
+    "upper_128_on_8051": "not available as stack space",
+    "lcall_push_order": "PC low byte first, then PC high byte",
+    "ret_pop_order": "PC high byte first, then PC low byte",
+    "pop_sp_note": "POP SP decrements SP before loading the popped value (guide example).",
+    "source": {
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+      "pdf_pages": [
+        7,
+        29
+      ]
+    }
+  },
+  "interrupts": {
+    "sources": [
+      {
+        "name": "IE0",
+        "vector": "0x0003",
+        "enable": "EX0",
+        "priority": "PX0",
+        "flag": "TCON.IE0",
+        "trigger": "external INT0 (P3.2), level or falling edge by IT0"
+      },
+      {
+        "name": "TF0",
+        "vector": "0x000B",
+        "enable": "ET0",
+        "priority": "PT0",
+        "flag": "TCON.TF0",
+        "trigger": "Timer 0 overflow"
+      },
+      {
+        "name": "IE1",
+        "vector": "0x0013",
+        "enable": "EX1",
+        "priority": "PX1",
+        "flag": "TCON.IE1",
+        "trigger": "external INT1 (P3.3), level or falling edge by IT1"
+      },
+      {
+        "name": "TF1",
+        "vector": "0x001B",
+        "enable": "ET1",
+        "priority": "PT1",
+        "flag": "TCON.TF1",
+        "trigger": "Timer 1 overflow"
+      },
+      {
+        "name": "RI_TI",
+        "vector": "0x0023",
+        "enable": "ES",
+        "priority": "PS",
+        "flag": "SCON.RI / SCON.TI",
+        "trigger": "serial (not simulated; SFR bits are plain storage)"
+      }
+    ],
+    "natural_priority": [
+      "IE0",
+      "TF0",
+      "IE1",
+      "TF1",
+      "RI_TI"
+    ],
+    "priority_levels": 2,
+    "same_level_blocks": true,
+    "higher_level_preempts": true,
+    "hardware_cleared_flags": [
+      "IE0 (edge)",
+      "IE1 (edge)",
+      "TF0",
+      "TF1"
+    ],
+    "level_triggered_flag": "not cleared by vector; re-requested while pin remains low",
+    "reti_behavior": "RETI restores the interrupt logic to accept the same priority level; a pending lower/same-level interrupt is processed after one more instruction.",
+    "ie_bits": {
+      "EA": 7,
+      "ES": 4,
+      "ET1": 3,
+      "EX1": 2,
+      "ET0": 1,
+      "EX0": 0
+    },
+    "ip_bits": {
+      "PS": 4,
+      "PT1": 3,
+      "PX1": 2,
+      "PT0": 1,
+      "PX0": 0
+    },
+    "serial_irq": "disabled (no serial simulation)",
+    "source": {
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+      "pdf_pages": [
+        13,
+        14
+      ]
+    }
+  },
+  "timers": {
+    "timers": [
+      "T0",
+      "T1"
+    ],
+    "modes": {
+      "0": "13-bit timer/counter (THx 8 bits + TLx low 5 bits)",
+      "1": "16-bit timer/counter",
+      "2": "8-bit auto-reload (TLx reloaded from THx)",
+      "3": "T0 split into TL0 and TH0; T1 stopped (T1 mode 3 does not run)"
+    },
+    "mode3_details": {
+      "TL0": "8-bit timer/counter controlled by the Timer 0 control bits (TR0, TF0, GATE, INT0, C/T)",
+      "TH0": "8-bit timer controlled by the Timer 1 control bits (TR1, TF1); counts machine cycles",
+      "T1": "stopped; TR1/TF1 are used by TH0"
+    },
+    "control": {
+      "TR0": "TCON.4",
+      "TF0": "TCON.5",
+      "TR1": "TCON.6",
+      "TF1": "TCON.7",
+      "GATE": "TMOD.GATE0/GATE1",
+      "C_T": "TMOD.C/T0, TMOD.C/T1",
+      "M1_M0": "TMOD mode select bits"
+    },
+    "gate": "when GATE=1, TRx=1 and INTx pin high are both required",
+    "counter_input": "falling edge on T0/T1 pin; sampled per machine cycle",
+    "overflow": "sets TFx; hardware clears TFx when the interrupt is vectored",
+    "source": {
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+      "pdf_pages": [
+        15,
+        16,
+        17
+      ]
+    }
+  },
+  "serial": {
+    "simulated": false,
+    "sfrs": [
+      "SCON",
+      "SBUF"
+    ],
+    "behavior": "plain registers; no shift register, no baud rate, no TI/RI hardware setting, no serial interrupt",
+    "source": {
+      "file": "docs/MCS-51_Programmer’s_Guide_and_Instruction_Set.PDF",
+      "pdf_pages": [
+        20
+      ]
+    }
+  },
+  "unsupported": [
+    {
+      "feature": "8052 Timer 2",
+      "reason": "device is 8051"
+    },
+    {
+      "feature": "serial port",
+      "reason": "task.md explicitly excludes serial simulation"
+    },
+    {
+      "feature": "S1-S6 phases",
+      "reason": "cycle-level simulation without phases"
+    },
+    {
+      "feature": "ALE/PSEN/RD/WR bus timing",
+      "reason": "no external bus model"
+    }
+  ],
+  "notes": [
+    "The guide covers 8051/8052/80C51; this file is restricted to 8051 SFRs.",
+    "Reserved SFR bits are documented but not assigned a defined value.",
+    "Unimplemented SFR and indirect-0x80-0xFF policies are simulator decisions and must be tested."
+  ],
+  "review": {
+    "status": "reviewed",
+    "checks": [
+      "SFR addresses checked against Table 1",
+      "reset values checked against Table 2",
+      "bit fields checked against the SFR descriptions",
+      "timer/interrupt definitions checked against the guide chapters",
+      "8052-only SFRs excluded"
+    ]
+  }
+}
