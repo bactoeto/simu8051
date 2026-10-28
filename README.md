@@ -92,15 +92,15 @@ cycle, cy [N]           execute N machine cycles
 continue, c             continue after a breakpoint
 break, b ADDR           set a PC breakpoint
 break cycle N           set a cycle breakpoint
-delete, d               clear breakpoints
+delete, del             clear breakpoints
 info, i break           list breakpoints
 regs, reg               print common registers
 sfr, sf [NAME]          print SFRs
 x SPACE ADDR [N]        dump memory (code/iram/sfr/direct/xdata/bit)
-dis [ADDR] [N]          disassemble
+disassemble, d [ADDR] [N]  disassemble
 reset, res [cold]       reset
 load, l FILE            load another HEX file
-display, disp ...       add a persistent display item
+display, dp ...         add a persistent display item
 undisplay, und N        remove a display item
 enable, on N            enable a display item
 disable, off N          disable a display item

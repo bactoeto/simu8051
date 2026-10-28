@@ -28,7 +28,7 @@ COMMON_SFRS = [
 
 COMMANDS = (
     "run", "step", "cycle", "continue", "break", "delete",
-    "regs", "sfr", "x", "dis", "reset", "load",
+    "regs", "sfr", "x", "disassemble", "reset", "load",
     "display", "undisplay", "enable", "disable", "info",
     "trace", "help", "quit",
 )
@@ -38,14 +38,15 @@ ALIASES = {
     "cy": "cycle",
     "c": "continue",
     "b": "break",
-    "d": "delete",
+    "del": "delete",
     "clear": "delete",
+    "d": "disassemble",
     "i": "info",
     "reg": "regs",
     "sf": "sfr",
     "res": "reset",
     "l": "load",
-    "disp": "display",
+    "dp": "display",
     "und": "undisplay",
     "en": "enable",
     "on": "enable",
@@ -175,15 +176,15 @@ Commands
   Breakpoints
     break, b ADDR          stop at PC ADDR, e.g. 0x0030
     break cycle N          stop at machine cycle N
-    delete, d              clear all breakpoints
+    delete, del            clear all breakpoints
     info, i break          list breakpoints
 
   Inspection
     regs, reg              PC, ACC, B, PSW, SP, DPTR, cycle
     sfr, sf [NAME]         all common SFRs, or one by name
     x SPACE ADDR [N]       dump N bytes (default 16)
-    dis [ADDR] [N]         disassemble N instructions (default 8)
-    display, disp SPEC     add a persistent display
+    disassemble, d [ADDR] [N]  disassemble N instructions (default 8)
+    display, dp SPEC       add a persistent display
     undisplay, und N       remove display item N
     enable, on N           turn display item N on
     disable, off N         turn display item N off
@@ -473,7 +474,7 @@ class CLI:
             self.cmd_sfr(args)
         elif cmd == "x":
             self.cmd_x(args)
-        elif cmd == "dis":
+        elif cmd == "disassemble":
             self.cmd_dis(args)
         elif cmd == "reset":
             self.cmd_reset(args)

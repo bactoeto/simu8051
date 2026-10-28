@@ -94,7 +94,7 @@ class CLITests(unittest.TestCase):
             "x sfr 0x80 2\n"
             "x xdata 0 2\n"
             "x bit 0 2\n"
-            "dis 0 2\n"
+            "disassemble 0 2\n"
             "reset cold\n"
             "load tests/fixtures/sub2.hex\n"
             "trace on\n"
