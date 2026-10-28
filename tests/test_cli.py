@@ -22,6 +22,20 @@ class CLITests(unittest.TestCase):
         for text in ("break cycle N", "x SPACE ADDR [N]", "Numbers", "Display"):
             self.assertIn(text, proc.stdout)
 
+    def test_command_aliases(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="b 0x0030\nr\ns 2\nreg\nq\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("breakpoint at 0x0030", proc.stdout)
+        self.assertIn("pc breakpoint 0x0030", proc.stdout)
+        self.assertIn("PC=0x0036", proc.stdout)
+
     def test_batch_run(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE), "--batch", "--max-cycles", "20"],

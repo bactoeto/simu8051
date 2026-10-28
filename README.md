@@ -86,25 +86,27 @@ See [Plugins](#plugins) for the plugin API.
 ### Commands
 
 ```text
-run [n]                 run until a stop condition or n instructions
-step [n]                execute n instructions
-cycle [n]               execute n machine cycles
-continue                continue after a breakpoint
-break ADDR              set a PC breakpoint
+run, r [N]              run until a stop condition or N instructions
+step, s [N]             execute N instructions
+cycle, cy [N]           execute N machine cycles
+continue, c             continue after a breakpoint
+break, b ADDR           set a PC breakpoint
 break cycle N           set a cycle breakpoint
-delete                  clear breakpoints
-info break              list breakpoints
-regs                    print common registers
-sfr [NAME]              print SFRs
+delete, d               clear breakpoints
+info, i break           list breakpoints
+regs, reg               print common registers
+sfr, sf [NAME]          print SFRs
 x SPACE ADDR [N]        dump memory (code/iram/sfr/direct/xdata/bit)
 dis [ADDR] [N]          disassemble
-reset [cold]            reset
-load FILE               load another HEX file
-display ...             add a persistent display item
-undisplay N             remove a display item
-disable N / enable N    toggle a display item
-trace on|off            instruction trace
-quit
+reset, res [cold]       reset
+load, l FILE            load another HEX file
+display, disp ...       add a persistent display item
+undisplay, und N        remove a display item
+enable, on N            enable a display item
+disable, off N          disable a display item
+trace, t on|off         instruction trace
+help, h, ?              show commands
+quit, q, exit
 ```
 
 The command list is printed when the interactive prompt starts. Type `help`
