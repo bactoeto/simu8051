@@ -46,6 +46,7 @@ class Session:
             self.core.load_image(self.image)
 
     def start(self) -> None:
+        """Dispatch on_start to every plugin."""
         if self._started:
             return
         for plugin, ctx in self._contexts():
@@ -56,21 +57,26 @@ class Session:
     # plugin/session API
     # ------------------------------------------------------------------
     def schedule_at(self, cycle: int, callback: ScheduledCallback) -> None:
+        """Call callback(ctx) after machine cycle cycle."""
         if cycle < self.core.cycle:
             raise ValueError("cannot schedule in the past")
         self._scheduled.append((cycle, callback))
 
     def stop(self, reason: str = "plugin stop") -> None:
+        """Request the run to stop with reason."""
         self.stop_reason = reason or "plugin stop"
         self._stopped = True
 
     def break_at(self, address: int) -> None:
+        """Stop before executing the instruction at address."""
         self.breakpoints_pc.add(address & 0xFFFF)
 
     def break_at_cycle(self, cycle: int) -> None:
+        """Stop when the machine cycle counter reaches cycle."""
         self.breakpoints_cycle.add(cycle)
 
     def clear_breakpoints(self) -> None:
+        """Remove all PC and cycle breakpoints."""
         self.breakpoints_pc.clear()
         self.breakpoints_cycle.clear()
 
@@ -126,6 +132,7 @@ class Session:
     # execution
     # ------------------------------------------------------------------
     def step_cycle(self) -> StepResult:
+        """Advance one machine cycle and return the resulting state."""
         if self._stopped:
             return StepResult(self.core.pc, self.core.pc, 0, self.stop_reason, halted=self.core.halted)
         start_pc = self.core.pc
@@ -151,6 +158,7 @@ class Session:
         )
 
     def step(self) -> StepResult:
+        """Execute one instruction and return the resulting state."""
         if self._stopped:
             return StepResult(self.core.pc, self.core.pc, 0, self.stop_reason, halted=self.core.halted)
         if self.core.halted:
@@ -202,6 +210,7 @@ class Session:
         )
 
     def run(self, max_cycles: Optional[int] = None, max_instructions: Optional[int] = None) -> StepResult:
+        """Run until a stop condition; the limits are optional."""
         start_cycle = self.core.cycle
         count = 0
         result = StepResult(self.core.pc, self.core.pc, 0)
@@ -224,6 +233,7 @@ class Session:
         return result
 
     def reset(self, cold: bool = False) -> None:
+        """Reset the core and clear scheduled callbacks and stop state."""
         self.core.reset(cold=cold)
         self._scheduled.clear()
         self.stop_reason = ""

@@ -110,27 +110,33 @@ class Core:
 
     @property
     def idle(self) -> bool:
+        """True when PCON.IDL is set."""
         return bool(self.read_latch(SFR["PCON"]) & 0x01)
 
     @property
     def halted(self) -> bool:
+        """True when PCON.PD is set."""
         return bool(self.read_latch(SFR["PCON"]) & 0x02)
 
     @property
     def oscillator_cycles(self) -> int:
+        """Oscillator cycles elapsed (12 per machine cycle)."""
         return self.cycle * 12
 
     @property
     def instruction_pc(self) -> int:
+        """PC of the instruction currently being executed."""
         return self._instr_pc
 
     # ------------------------------------------------------------------
     # memory
     # ------------------------------------------------------------------
     def read_code(self, address: int) -> int:
+        """Read a byte from program memory (address is masked to 0xFFFF)."""
         return self.code[address & 0xFFFF]
 
     def read_direct(self, address: int) -> int:
+        """Read the direct space; port addresses return pin levels."""
         address &= 0xFF
         if address < 0x80:
             return self.iram[address]
@@ -141,6 +147,7 @@ class Core:
         return 0xFF
 
     def read_latch(self, address: int) -> int:
+        """Read the SFR/RAM latch; port addresses return the latch, not pins."""
         address &= 0xFF
         if address < 0x80:
             return self.iram[address]
@@ -149,6 +156,7 @@ class Core:
         return 0xFF
 
     def write_direct(self, address: int, value: int) -> None:
+        """Write the direct space, applying SFR side effects."""
         address &= 0xFF
         value &= 0xFF
         if address < 0x80:
@@ -173,10 +181,12 @@ class Core:
         self.sfr[address - 0x80] = value
 
     def read_indirect(self, address: int) -> int:
+        """Read @Ri space; addresses 0x80-0xFF return 0xFF."""
         address &= 0xFF
         return self.iram[address] if address < 0x80 else 0xFF
 
     def write_indirect(self, address: int, value: int) -> None:
+        """Write @Ri space; addresses 0x80-0xFF are ignored."""
         address &= 0xFF
         if address < 0x80:
             self.iram[address] = value & 0xFF
@@ -191,6 +201,7 @@ class Core:
         return bit & 0xF8, 1 << (bit & 7), True
 
     def read_bit(self, bit: int, latch: bool = False) -> int:
+        """Read a bit; port bits use pin levels unless latch is true."""
         addr, mask, is_sfr = self._bit_target(bit)
         if not is_sfr:
             return 1 if self.iram[addr] & mask else 0
@@ -203,6 +214,7 @@ class Core:
         return 1 if value & mask else 0
 
     def write_bit(self, bit: int, value: int) -> None:
+        """Write a bit; port bits update the latch only."""
         addr, mask, is_sfr = self._bit_target(bit)
         value = 1 if value else 0
         if not is_sfr:
@@ -226,16 +238,20 @@ class Core:
             self._update_parity()
 
     def read_xdata(self, address: int) -> int:
+        """Read external data memory (0x0000-0xFFFF)."""
         return self.xdata[address & 0xFFFF]
 
     def write_xdata(self, address: int, value: int) -> None:
+        """Write external data memory (0x0000-0xFFFF)."""
         self.xdata[address & 0xFFFF] = value & 0xFF
 
     def get_sfr(self, name_or_addr: str | int) -> int:
+        """Read an SFR latch by name or address."""
         addr = self._sfr_addr(name_or_addr)
         return self.read_latch(addr)
 
     def set_sfr(self, name_or_addr: str | int, value: int) -> None:
+        """Write an SFR by name or address."""
         self.write_direct(self._sfr_addr(name_or_addr), value)
 
     def _sfr_addr(self, name_or_addr: str | int) -> int:
@@ -252,6 +268,7 @@ class Core:
         return (self.read_latch(SFR["PSW"]) >> 3) & 0x03
 
     def get_reg(self, name: str) -> int:
+        """Read a register: A, B, PSW, SP, DPL, DPH, DPTR, PC or R0-R7."""
         name = name.upper()
         if name == "A":
             return self.read_latch(SFR["ACC"])
@@ -274,6 +291,7 @@ class Core:
         raise KeyError(f"unknown register {name!r}")
 
     def set_reg(self, name: str, value: int) -> None:
+        """Write a register: A, B, PSW, SP, DPL, DPH, DPTR, PC or R0-R7."""
         name = name.upper()
         value &= 0xFFFF if name in {"PC", "DPTR"} else 0xFF
         if name == "A":
@@ -344,6 +362,7 @@ class Core:
             self.pins[index] = ((latch & ~mask) | (self.ext_value[index] & mask)) & 0xFF
 
     def drive_pin(self, port: int, bit: int, value: int) -> None:
+        """Drive one external pin; the port latch is unchanged."""
         index = PORT_INDEX.get(port, port) if port in PORT_INDEX else port
         if not 0 <= index <= 3 or not 0 <= bit <= 7:
             raise ValueError("port must be 0..3/0x80..0xB0 and bit 0..7")
@@ -355,6 +374,7 @@ class Core:
             self.ext_value[index] &= ~mask & 0xFF
 
     def drive_port(self, port: int, mask: int, value: int) -> None:
+        """Drive selected pins; bits not set in mask keep their level."""
         index = PORT_INDEX.get(port, port) if port in PORT_INDEX else port
         if not 0 <= index <= 3:
             raise ValueError("port must be 0..3/0x80..0xB0")
@@ -362,6 +382,7 @@ class Core:
         self.ext_value[index] = ((self.ext_value[index] & ~mask) | (value & mask)) & 0xFF
 
     def release_pin(self, port: int, mask: int = 0xFF) -> None:
+        """Release external drive on the selected pins."""
         index = PORT_INDEX.get(port, port) if port in PORT_INDEX else port
         if not 0 <= index <= 3:
             raise ValueError("port must be 0..3/0x80..0xB0")
