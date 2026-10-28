@@ -165,9 +165,42 @@ Do not edit the generated tables by hand.
 
 ## Plugins
 
-A plugin is a Python file registered with `--plugin`; repeat the flag to run
-several plugins in command-line order. A file is one plugin and contains hook
-functions; no class or inheritance is involved.
+A plugin is one plain `.py` file. It is not a package and does not import the
+simulator. You define module-level functions with the exact names below, then
+pass the file path with `--plugin`.
+
+### How to write one
+
+1. Create any `.py` file.
+2. Define at least one function from the hook list below.
+3. Make `ctx` the first parameter of every function.
+4. Use `ctx` to read/write memory, registers or pins.
+5. Run `python3 -m simu8051 firmware.hex --plugin your_file.py`.
+
+Do **not** write a class, do **not** inherit from `Plugin`, do **not** use
+`self`.
+
+### Minimal plugin
+
+```python
+def setup(ctx):
+    ctx.write("iram", 0x20, 0x5A)
+```
+
+This runs once when the file is loaded and writes `0x5A` to internal RAM
+address `0x20`.
+
+### Plugin with a cycle hook
+
+```python
+def on_cycle(ctx):
+    if ctx.cycle == 20:
+        ctx.drive_pin(3, 2, 0)
+```
+
+This runs after every machine cycle; at cycle 20 it pulls INT0 (P3.2) low.
+
+### Typical plugin
 
 ```python
 from simu8051.plugin import PluginContext
@@ -184,24 +217,26 @@ def write_ram(ctx: PluginContext) -> None:
 def on_cycle(ctx: PluginContext) -> None:
     if ctx.cycle == 20:
         ctx.drive_pin(3, 2, 0)
+    elif ctx.cycle == 30:
+        ctx.drive_pin(3, 2, 1)
 ```
 
-`PluginContext` is created by the simulator and passed to the hook. The import
-is for editor and type-checker support; it does not create the object.
+The `PluginContext` import is only for editors and type checkers. The
+simulator creates the object and passes it to each hook.
 
 ### Hooks
 
-| Function | Called |
-|---|---|
-| `setup(ctx)` | once, when the plugin is loaded |
-| `on_start(ctx)` | once, when the session starts |
-| `on_cycle(ctx)` | after every machine cycle |
-| `on_instruction(ctx, text)` | after each completed instruction |
-| `on_interrupt(ctx, name)` | when an interrupt is accepted |
-| `on_stop(ctx, reason)` | when the run stops |
+| Function | Called with | When |
+|---|---|---|
+| `setup(ctx)` | `ctx` | once, when the plugin is loaded |
+| `on_start(ctx)` | `ctx` | once, when the session starts |
+| `on_cycle(ctx)` | `ctx` | after every machine cycle |
+| `on_instruction(ctx, text)` | `ctx`, instruction text | after each completed instruction |
+| `on_interrupt(ctx, name)` | `ctx`, interrupt name | when an interrupt is accepted |
+| `on_stop(ctx, reason)` | `ctx`, stop reason | when the run stops |
 
-All hooks are optional, but a plugin file must define at least one. Functions
-with other names are ignored.
+All hooks are optional, but the file must define at least one; otherwise
+loading fails. Functions with other names are ignored.
 
 ### Context API
 
@@ -216,7 +251,7 @@ with other names are ignored.
 | `ctx.drive_pin(port, bit, value)` | drive one external pin |
 | `ctx.drive_port(port, mask, value)` | drive selected port pins |
 | `ctx.release_pin(port, mask)` | release external drive |
-| `ctx.schedule_at(cycle, callback)` | call `callback(ctx)` after a cycle |
+| `ctx.schedule_at(cycle, callback)` | call `callback(ctx)` after machine cycle N |
 | `ctx.stop(reason)` | stop the session |
 
 Memory spaces:

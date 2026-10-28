@@ -153,10 +153,10 @@ class PluginContext:
         self.core.release_pin(port, mask)
 
     def schedule_at(self, cycle: int, callback: ScheduledCallback) -> None:
-        """Call ``callback(ctx)`` after machine cycle ``cycle``.
+        """Call ``callback(ctx)`` after machine cycle N.
 
-        The callback runs after the core tick for that cycle and before the
-        next cycle. Its writes take effect on the next machine cycle.
+        The callback runs after the core tick for cycle N and before cycle
+        N+1. Its writes take effect on the next machine cycle.
         """
         self.session.schedule_at(cycle, callback)
 
