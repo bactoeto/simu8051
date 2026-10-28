@@ -4,3 +4,6 @@ build/
 
 # third-party reference documents (Intel copyright)
 docs/
+
+# local task notes
+task.md
