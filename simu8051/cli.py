@@ -28,7 +28,7 @@ COMMON_SFRS = [
 
 COMMANDS = (
     "run", "step", "cycle", "continue", "break", "delete",
-    "regs", "sfr", "x", "disassemble", "reset", "load",
+    "regs", "sfr", "x", "w", "disassemble", "reset", "load",
     "display", "undisplay", "enable", "disable", "info",
     "trace", "help", "quit",
 )
@@ -65,7 +65,7 @@ def canonical(word: str) -> str:
 REG_NAMES = ("A", "B", "PSW", "SP", "DPL", "DPH", "DPTR", "PC", "R0", "R1",
              "R2", "R3", "R4", "R5", "R6", "R7")
 SFR_NAMES = tuple(sorted(SFR))
-SPACES = ("code", "iram", "sfr", "direct", "xdata", "bit")
+SPACES = ("i", "x", "c")
 DISPLAY_KINDS = ("regs", "pc", "reg", "sfr", "mem", "bit")
 INFO_KINDS = ("break", "display")
 
@@ -94,7 +94,7 @@ def completion_candidates(tokens: list[str], text: str) -> list[str]:
         return path_candidates(text)
     if head == "sfr" and len(tokens) == 1:
         return [name for name in SFR_NAMES if name.lower().startswith(text.lower())]
-    if head == "x" and len(tokens) == 1:
+    if head in {"x", "w"} and len(tokens) == 1:
         return [name for name in SPACES if name.startswith(text.lower())]
     if head == "display":
         if len(tokens) == 1:
@@ -169,7 +169,7 @@ def prompt_text() -> str:
 
 
 HELP_TEXT = """\
-Commands\n\n  Command      Aliases  Arguments       Description\n  -------------------------------------------------\n\n  Execution\n  run          r        [N]             run N instructions; omit N to run until a stop\n  step         s        [N]             execute N instructions (default 1)\n  cycle        cy       [N]             execute N machine cycles (default 1)\n  continue     c                        resume after a stop\n  reset        res      [cold]          reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR            stop at PC ADDR, e.g. 0x0030\n  break cycle           N               stop at machine cycle N\n  delete       del                      clear all breakpoints\n  info         i        break|display   list breakpoints or displays\n\n  Inspection\n  regs         reg                      PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]          all common SFRs, or one by name\n  x                     SPACE ADDR [N]  dump N bytes (default 16)\n  disassemble  d        [ADDR] [N]      disassemble N instructions (default 8)\n  display      dp       SPEC            add a persistent display\n  undisplay    und      N               remove display item N\n  enable       on       N               turn display item N on\n  disable      off      N               turn display item N off\n\n  Other\n  load         l        FILE            load another HEX file\n  trace        t        on|off          print each executed instruction\n  help         h, ?                     show this text\n  quit         q, exit                  leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    code | iram | sfr | direct | xdata | bit\n  Display   regs | pc | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
+Commands\n\n  Command      Aliases  Arguments            Description\n  ------------------------------------------------------\n\n  Execution\n  run          r        [N]                  run N instructions; omit N to run until a stop\n  step         s        [N]                  execute N instructions (default 1)\n  cycle        cy       [N]                  execute N machine cycles (default 1)\n  continue     c                             resume after a stop\n  reset        res      [cold]               reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR                 stop at PC ADDR, e.g. 0x0030\n  break cycle           N                    stop at machine cycle N\n  delete       del                           clear all breakpoints\n  info         i        break|display        list breakpoints or displays\n\n  Inspection\n  regs         reg                           PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]               all common SFRs, or one by name\n  x                     SPACE ADDR [N]       dump N bytes: i, x, c (default 16)\n  w                     SPACE ADDR VALUE...  write bytes: i, x, c (c patches ROM)\n  disassemble  d        [ADDR] [N]           disassemble N instructions (default 8)\n  display      dp       SPEC                 add a persistent display\n  undisplay    und      N                    remove display item N\n  enable       on       N                    turn display item N on\n  disable      off      N                    turn display item N off\n\n  Other\n  load         l        FILE                 load another HEX file\n  trace        t        on|off               print each executed instruction\n  help         h, ?                          show this text\n  quit         q, exit                       leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    i = internal RAM | x = external RAM | c = ROM\n  Display   regs | pc | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
 
 
 def parse_int(text: str) -> int:
@@ -252,19 +252,17 @@ def format_mem(session: Session, space: str, address: int, count: int) -> str:
     core = session.core
     values = []
     for i in range(count):
-        addr = (address + i) & 0xFFFF if space in {"code", "xdata"} else (address + i) & 0xFF
+        addr = (address + i) & 0xFFFF if space in {"x", "c"} else (address + i) & 0xFF
         values.append(f"{_read_space(core, space, addr):02X}")
     return f"{space}[0x{address:04X}..]: " + " ".join(values)
 
 
 def _read_space(core: Core, space: str, address: int) -> int:
-    if space == "code":
+    if space == "c":
         return core.read_code(address)
-    if space == "iram":
+    if space == "i":
         return core.read_indirect(address)
-    if space in {"sfr", "direct"}:
-        return core.read_latch(address)
-    if space == "xdata":
+    if space == "x":
         return core.read_xdata(address)
     if space == "bit":
         return core.read_bit(address)
@@ -436,11 +434,35 @@ class CLI:
         print(" ".join(format_sfr(self.session, name) for name in names))
 
     def cmd_x(self, args: list[str]) -> None:
-        if len(args) < 2:
-            raise ValueError("usage: x SPACE ADDR [N]")
+        if len(args) < 2 or args[0].lower() not in SPACES:
+            raise ValueError("usage: x i|x|c ADDR [N]")
         space, address = args[0].lower(), parse_int(args[1])
         count = parse_int(args[2]) if len(args) > 2 else 16
         print(format_mem(self.session, space, address, count))
+
+    def cmd_w(self, args: list[str]) -> None:
+        if len(args) < 3 or args[0].lower() not in SPACES:
+            raise ValueError("usage: w i|x|c ADDR VALUE...")
+        space, address = args[0].lower(), parse_int(args[1])
+        values = [parse_int(text) for text in args[2:]]
+        for value in values:
+            if not 0 <= value <= 0xFF:
+                raise ValueError(f"value out of range: {value}")
+        if space == "i" and not 0 <= address <= 0x7F:
+            raise ValueError("internal RAM is 0x00-0x7F")
+        if space == "i" and address + len(values) > 0x80:
+            raise ValueError("internal RAM is 0x00-0x7F")
+        for offset, value in enumerate(values):
+            addr = address + offset
+            if space == "i":
+                self.session.core.write_indirect(addr, value)
+            elif space == "x":
+                self.session.core.write_xdata(addr, value)
+            else:
+                self.session.core.write_code(addr, value)
+                if self.session.image is not None:
+                    self.session.image.code[addr & 0xFFFF] = value
+        print(format_mem(self.session, space, address, len(values)))
 
     def cmd_dis(self, args: list[str]) -> None:
         if not self.session.image:
@@ -498,6 +520,8 @@ class CLI:
             self.cmd_sfr(args)
         elif cmd == "x":
             self.cmd_x(args)
+        elif cmd == "w":
+            self.cmd_w(args)
         elif cmd == "disassemble":
             self.cmd_dis(args)
         elif cmd == "reset":

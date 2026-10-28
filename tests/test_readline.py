@@ -15,11 +15,12 @@ class CompletionTests(unittest.TestCase):
 
     def test_sfr_and_spaces(self):
         self.assertEqual(completion_candidates(["sfr"], "ac"), ["ACC"])
-        self.assertEqual(completion_candidates(["x"], "i"), ["iram"])
+        self.assertEqual(completion_candidates(["x"], "i"), ["i"])
+        self.assertEqual(completion_candidates(["w"], "x"), ["x"])
 
     def test_display(self):
         self.assertEqual(completion_candidates(["display"], "m"), ["mem"])
-        self.assertEqual(completion_candidates(["display", "mem"], "s"), ["sfr"])
+        self.assertEqual(completion_candidates(["display", "mem"], "x"), ["x"])
         self.assertEqual(completion_candidates(["display", "reg"], "p"), ["PSW", "PC"])
 
     def test_misc(self):

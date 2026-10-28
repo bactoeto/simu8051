@@ -115,6 +115,15 @@ class CoreBasics(unittest.TestCase):
         c.set_reg("PC", 0x4567)
         self.assertEqual(c.pc, 0x4567)
 
+    def test_write_code(self):
+        c = Core()
+        c.write_code(0, 0x12)
+        self.assertEqual(c.read_code(0), 0x12)
+        c.write_code(0x10000, 0x34)
+        self.assertEqual(c.read_code(0), 0x34)
+        c.write_code(1, 0x1FF)
+        self.assertEqual(c.read_code(1), 0xFF)
+
     def test_movx_movc(self):
         c = make([0x90, 0x01, 0x00, 0xE0, 0x93])
         c.xdata[0x0100] = 0x42

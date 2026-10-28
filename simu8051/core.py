@@ -135,6 +135,10 @@ class Core:
         """Read a byte from program memory (address is masked to 0xFFFF)."""
         return self.code[address & 0xFFFF]
 
+    def write_code(self, address: int, value: int) -> None:
+        """Write a byte to program memory (address is masked to 0xFFFF)."""
+        self.code[address & 0xFFFF] = value & 0xFF
+
     def read_direct(self, address: int) -> int:
         """Read the direct space; port addresses return pin levels."""
         address &= 0xFF
