@@ -34,7 +34,7 @@ class CLITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("breakpoint at 0x0030", proc.stdout)
         self.assertIn("pc breakpoint 0x0030", proc.stdout)
-        self.assertIn("PC=0x0036", proc.stdout)
+        self.assertIn("0x0036", proc.stdout)
 
     def test_subcommand_aliases(self):
         proc = subprocess.run(

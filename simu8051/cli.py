@@ -176,18 +176,58 @@ def parse_int(text: str) -> int:
     return int(text, 0)
 
 
+def _table(headers: list[list[str]], values: list[list[str]]) -> str:
+    """Render stacked header/value strips as one box-drawing table."""
+    cells = [row for pair in zip(headers, values) for row in pair]
+    columns = max(len(row) for row in cells)
+    widths = [
+        max((len(row[c]) for row in cells if c < len(row)), default=0)
+        for c in range(columns)
+    ]
+
+    def line(row: list[str]) -> str:
+        padded = [
+            f" {row[c] if c < len(row) else '':<{widths[c]}} "
+            for c in range(columns)
+        ]
+        return "│" + "│".join(padded) + "│"
+
+    def rule(left: str, mid: str, right: str) -> str:
+        return left + mid.join("─" * (width + 2) for width in widths) + right
+
+    lines = [rule("┌", "┬", "┐")]
+    for index, (header, value) in enumerate(zip(headers, values)):
+        lines += [line(header), line(value)]
+        lines.append(
+            rule("└", "┴", "┘")
+            if index == len(headers) - 1
+            else rule("├", "┼", "┤")
+        )
+    return "\n".join(lines)
+
+
 def format_regs(session: Session) -> str:
     core = session.core
     psw = core.get_sfr("PSW")
-    regs = [
-        f"PC=0x{core.pc:04X}", f"ACC=0x{core.get_reg('A'):02X}",
-        f"B=0x{core.get_reg('B'):02X}", f"PSW=0x{psw:02X}",
-        f"SP=0x{core.get_sfr('SP'):02X}", f"DPTR=0x{core.get_reg('DPTR'):04X}",
-        f"cycle={core.cycle}",
+    headers = [
+        ["PC", "ACC", "B", "PSW", "SP", "DPTR", "cycle"],
+        [f"R{i}" for i in range(8)],
+        ["CY", "AC", "F0", "RS1", "RS0", "OV", "F1", "P"],
     ]
-    for i in range(8):
-        regs.append(f"R{i}=0x{core.get_reg(f'R{i}'):02X}")
-    return " ".join(regs)
+    values = [
+        [
+            f"0x{core.pc:04X}",
+            f"0x{core.get_reg('A'):02X}",
+            f"0x{core.get_reg('B'):02X}",
+            f"0x{psw:02X}",
+            f"0x{core.get_sfr('SP'):02X}",
+            f"0x{core.get_reg('DPTR'):04X}",
+            str(core.cycle),
+        ],
+        [f"0x{core.get_reg(f'R{i}'):02X}" for i in range(8)],
+        [str((psw >> bit) & 1) for bit in range(7, -1, -1)],
+    ]
+    return _table(headers, values)
 
 
 def format_sfr(session: Session, name: str) -> str:
@@ -251,7 +291,12 @@ def print_displays(session: Session, displays: list[dict]) -> None:
             value = display_value(session, item["spec"])
         except Exception as exc:
             value = f"<display error: {exc}>"
-        print(f"[{index}] {item['label']}: {value}")
+        prefix = f"[{index}] {item['label']}:"
+        if "\n" in value:
+            print(prefix)
+            print(value)
+        else:
+            print(f"{prefix} {value}")
 
 
 def parse_display(args: list[str]) -> tuple:
