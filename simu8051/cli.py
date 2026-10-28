@@ -213,6 +213,7 @@ def format_regs(session: Session) -> str:
         ["PC", "ACC", "B", "PSW", "SP", "DPTR", "cycle"],
         [f"R{i}" for i in range(8)],
         ["CY", "AC", "F0", "RS1", "RS0", "OV", "F1", "P"],
+        ["TH0", "TL0", "TH1", "TL1", "TMOD", "TCON"],
     ]
     values = [
         [
@@ -226,6 +227,14 @@ def format_regs(session: Session) -> str:
         ],
         [f"0x{core.get_reg(f'R{i}'):02X}" for i in range(8)],
         [str((psw >> bit) & 1) for bit in range(7, -1, -1)],
+        [
+            f"0x{core.get_sfr('TH0'):02X}",
+            f"0x{core.get_sfr('TL0'):02X}",
+            f"0x{core.get_sfr('TH1'):02X}",
+            f"0x{core.get_sfr('TL1'):02X}",
+            f"0x{core.get_sfr('TMOD'):02X}",
+            f"0x{core.get_sfr('TCON'):02X}",
+        ],
     ]
     return _table(headers, values)
 
