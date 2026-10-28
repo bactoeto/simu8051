@@ -198,3 +198,7 @@ python3 tools/check_form_coverage.py
 - Indirect access to `0x80-0xFF` is not internal RAM on the 8051.
 - Cold reset clears RAM/XDATA for determinism; warm reset preserves them.
 - No ALE/PSEN/RD/WR bus timing or electrical characteristics.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
