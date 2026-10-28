@@ -27,6 +27,7 @@ def main() -> int:
     isa = json.loads(ISA.read_text(encoding="utf-8"))
     mem = json.loads(MEM.read_text(encoding="utf-8"))
 
+    syntax_by_form = {inst["id"]: inst["syntax"] for inst in isa["instructions"]}
     opcodes: list[object] = [None] * 256
     for entry in isa["opcodes"]:
         op = int(entry["opcode"], 16)
@@ -37,7 +38,7 @@ def main() -> int:
                 "form": entry["form"],
                 "bytes": entry["bytes"],
                 "cycles": entry["cycles"],
-                "syntax": entry["syntax"],
+                "syntax": syntax_by_form.get(entry["form"], entry["syntax"]),
             }
     forms = {
         inst["id"]: {

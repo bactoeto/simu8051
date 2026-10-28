@@ -318,12 +318,12 @@ class CLI:
 
     def cmd_run(self, args: list[str]) -> None:
         max_instructions = parse_int(args[0]) if args else None
-        self.session._stopped = False
+        self.session.resume()
         result = self.session.run(max_instructions=max_instructions)
         self.stop_display(result)
 
     def cmd_continue(self) -> None:
-        self.session._stopped = False
+        self.session.resume()
         result = self.session.run()
         self.stop_display(result)
 

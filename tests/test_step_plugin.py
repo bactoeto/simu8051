@@ -94,6 +94,25 @@ class StepTests(unittest.TestCase):
         s.run(max_instructions=1)
         self.assertTrue(any(isinstance(e, tuple) and e[0] == "stop" for e in p.events))
 
+    def test_run_breakpoint_then_step(self):
+        s = session_with([0x02, 0x00, 0x03, 0x00])
+        s.break_at(3)
+        first = s.run()
+        self.assertEqual(s.core.pc, 3)
+        self.assertIn("breakpoint", first.reason)
+        second = s.step()
+        self.assertEqual(second.cycles, 1)
+        self.assertEqual(s.core.pc, 4)
+
+    def test_step_after_breakpoint(self):
+        s = session_with([0x00, 0x00])
+        s.break_at(0)
+        first = s.step()
+        self.assertIn("breakpoint", first.reason)
+        second = s.step()
+        self.assertEqual(second.cycles, 1)
+        self.assertEqual(s.core.pc, 1)
+
     def test_load_function_plugin(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "plug.py"

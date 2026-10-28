@@ -57,7 +57,7 @@ class Session:
     # plugin/session API
     # ------------------------------------------------------------------
     def schedule_at(self, cycle: int, callback: ScheduledCallback) -> None:
-        """Call callback(ctx) after machine cycle cycle."""
+        """Call callback(ctx) after machine cycle N."""
         if cycle < self.core.cycle:
             raise ValueError("cannot schedule in the past")
         self._scheduled.append((cycle, callback))
@@ -131,10 +131,19 @@ class Session:
     # ------------------------------------------------------------------
     # execution
     # ------------------------------------------------------------------
+    def resume(self) -> None:
+        """Clear the stop state so stepping or running can continue."""
+        self._stopped = False
+        self.stop_reason = ""
+        self._stop_dispatched = False
+
     def step_cycle(self) -> StepResult:
         """Advance one machine cycle and return the resulting state."""
-        if self._stopped:
-            return StepResult(self.core.pc, self.core.pc, 0, self.stop_reason, halted=self.core.halted)
+        self.resume()
+        if self.core.halted:
+            self.stop_reason = "halted (power-down)"
+            self._stopped = True
+            return StepResult(self.core.pc, self.core.pc, 0, self.stop_reason, halted=True)
         start_pc = self.core.pc
         start_cycle = self.core.cycle
         try:
@@ -159,8 +168,6 @@ class Session:
 
     def step(self) -> StepResult:
         """Execute one instruction and return the resulting state."""
-        if self._stopped:
-            return StepResult(self.core.pc, self.core.pc, 0, self.stop_reason, halted=self.core.halted)
         if self.core.halted:
             self.stop_reason = "halted (power-down)"
             self._stopped = True
@@ -168,6 +175,7 @@ class Session:
         if self.core.idle:
             return self.step_cycle()
 
+        self.resume()
         start_pc = self.core.pc
         if start_pc in self.breakpoints_pc and self._last_stop_pc != start_pc:
             self.stop_reason = f"pc breakpoint 0x{start_pc:04X}"
@@ -217,16 +225,22 @@ class Session:
         while not self._stopped:
             if max_cycles is not None and self.core.cycle - start_cycle >= max_cycles:
                 self.stop_reason = f"max cycles {max_cycles}"
+                result.reason = self.stop_reason
                 break
             if max_instructions is not None and count >= max_instructions:
                 self.stop_reason = f"max instructions {max_instructions}"
+                result.reason = self.stop_reason
                 break
             result = self.step()
             count += 1
             if result.reason:
                 break
             if self.core.pc in self.breakpoints_pc and self.core.pc != result.pc:
-                # step() will stop before executing the breakpoint next time.
+                # Stop before the instruction at the breakpoint; step() should
+                # execute it when called next.
+                self._last_stop_pc = self.core.pc
+                self.stop_reason = f"pc breakpoint 0x{self.core.pc:04X}"
+                result.reason = self.stop_reason
                 break
         if self.stop_reason:
             self._dispatch_stop()

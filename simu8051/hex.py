@@ -219,22 +219,27 @@ def format_instruction(inst: Instruction) -> str:
         return f"LCALL   0x{(args[0] << 8) | args[1]:04X}"
     if form in {"SJMP_rel", "JC_rel", "JNC_rel", "JZ_rel", "JNZ_rel"}:
         target = (inst.address + inst.size + _signed8(args[0])) & 0xFFFF
-        return f"{syntax:<7} 0x{target:04X}"
+        return f"{syntax.split()[0]:<7} 0x{target:04X}"
     if form in {"JB_bit_rel", "JNB_bit_rel", "JBC_bit_rel"}:
         target = (inst.address + inst.size + _signed8(args[1])) & 0xFFFF
-        return f"{syntax:<7} 0x{args[0]:02X},0x{target:04X}"
+        return f"{syntax.split()[0]:<7} 0x{args[0]:02X},0x{target:04X}"
     if form in {"CJNE_A_IMM_data_rel", "CJNE_Rn_IMM_data_rel", "CJNE_AT_Ri_IMM_data_rel"}:
         target = (inst.address + inst.size + _signed8(args[1])) & 0xFFFF
-        return f"{syntax:<7} #0x{args[0]:02X},0x{target:04X}"
+        dest = {
+            "CJNE_A_IMM_data_rel": "A",
+            "CJNE_Rn_IMM_data_rel": f"R{inst.opcode & 7}",
+            "CJNE_AT_Ri_IMM_data_rel": f"@R{inst.opcode & 1}",
+        }[form]
+        return f"CJNE    {dest},#0x{args[0]:02X},0x{target:04X}"
     if form == "CJNE_A_direct_rel":
         target = (inst.address + inst.size + _signed8(args[1])) & 0xFFFF
-        return f"{syntax:<7} 0x{args[0]:02X},0x{target:04X}"
+        return f"CJNE    A,0x{args[0]:02X},0x{target:04X}"
     if form == "DJNZ_Rn_rel":
         target = (inst.address + inst.size + _signed8(args[0])) & 0xFFFF
-        return f"{syntax:<7} 0x{target:04X}"
+        return f"DJNZ    R{inst.opcode & 7},0x{target:04X}"
     if form == "DJNZ_direct_rel":
         target = (inst.address + inst.size + _signed8(args[1])) & 0xFFFF
-        return f"{syntax:<7} 0x{args[0]:02X},0x{target:04X}"
+        return f"DJNZ    0x{args[0]:02X},0x{target:04X}"
     if form == "JMP_AT_A_PLUS_DPTR":
         return "JMP     @A+DPTR"
     if form.startswith("MOVX_"):
