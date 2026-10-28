@@ -17,6 +17,44 @@ COMMON_SFRS = [
     "IE", "IP", "TCON", "TMOD", "TH0", "TL0", "TH1", "TL1", "SCON", "PCON",
 ]
 
+HELP_TEXT = """\
+Commands
+
+  Execution
+    run [N]                run N instructions; omit N to run until a stop
+    step [N]               execute N instructions (default 1)
+    cycle [N]              execute N machine cycles (default 1)
+    continue               resume after a stop
+    reset [cold]           reset; "cold" also clears IRAM and XDATA
+
+  Breakpoints
+    break ADDR             stop at PC ADDR, e.g. 0x0030
+    break cycle N          stop at machine cycle N
+    delete                 clear all breakpoints
+    info break             list breakpoints
+
+  Inspection
+    regs                   PC, ACC, B, PSW, SP, DPTR, cycle
+    sfr [NAME]             all common SFRs, or one by name
+    x SPACE ADDR [N]       dump N bytes (default 16)
+    dis [ADDR] [N]         disassemble N instructions (default 8)
+    display SPEC           add a persistent display
+    undisplay N            remove display item N
+    enable N               turn display item N on
+    disable N              turn display item N off
+    info display           list display items
+
+  Other
+    load FILE              load another HEX file
+    trace on|off           print each executed instruction
+    help, ?                show this text
+    quit, exit, q          leave the simulator
+
+  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000
+  Spaces    code | iram | sfr | direct | xdata | bit
+  Display   regs | pc | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]
+"""
+
 
 def parse_int(text: str) -> int:
     return int(text, 0)
@@ -145,10 +183,7 @@ class CLI:
         print_displays(self.session, self.displays)
 
     def cmd_help(self) -> None:
-        print("run [n] | step [n] | cycle [n] | continue | break ADDR | break cycle N")
-        print("regs | sfr [NAME] | x SPACE ADDR [N] | dis [ADDR] [N] | reset [cold]")
-        print("display regs|reg NAME|sfr NAME|mem SPACE ADDR [N]|bit ADDR [N]|pc")
-        print("undisplay N | disable N | enable N | info display | info break | trace on|off | quit")
+        print(HELP_TEXT)
 
     def cmd_step(self, args: list[str]) -> None:
         count = parse_int(args[0]) if args else 1
@@ -312,6 +347,7 @@ class CLI:
             print(f"unknown command: {cmd}")
 
     def loop(self) -> int:
+        print(HELP_TEXT)
         while not self.quit:
             try:
                 line = input("8051> ")

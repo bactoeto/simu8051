@@ -8,6 +8,20 @@ FIXTURE = ROOT / "tests" / "fixtures" / "sub1.hex"
 
 
 class CLITests(unittest.TestCase):
+    def test_help_printed_on_start(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="help\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.count("Commands"), 2)  # startup + help command
+        for text in ("break cycle N", "x SPACE ADDR [N]", "Numbers", "Display"):
+            self.assertIn(text, proc.stdout)
+
     def test_batch_run(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE), "--batch", "--max-cycles", "20"],

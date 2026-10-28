@@ -71,6 +71,9 @@ trace on|off            instruction trace
 quit
 ```
 
+The command list is printed when the interactive prompt starts. Type `help`
+or `?` to show it again.
+
 The default persistent display is `regs`, printed after every execution
 stop. Use `--no-default-display` to disable it.
 
