@@ -18,6 +18,12 @@ ROOT = Path(__file__).resolve().parent.parent
 CASES = ROOT / "build" / "ucsim_cases"
 OPCODES = json.loads((ROOT / "data" / "isa.json").read_text(encoding="utf-8"))["opcodes"]
 UCSIM = shutil.which("ucsim_51")
+
+
+def _ucsim() -> str:
+    if UCSIM is None:
+        raise RuntimeError("ucsim_51 not found")
+    return UCSIM
 TICKS_RE = re.compile(r"stepped\s+(\d+)\s+ticks")
 
 
@@ -39,7 +45,7 @@ def make_case(opcode: int) -> Path:
 
 def run_case(path: Path) -> tuple[int | None, str]:
     proc = subprocess.run(
-        [UCSIM, "-t", "51", "-q", "-e", f'load "{path}"', "-e", "step 1", "-e", "quit"],
+        [_ucsim(), "-t", "51", "-q", "-e", f'load "{path}"', "-e", "step 1", "-e", "quit"],
         cwd=ROOT,
         text=True,
         capture_output=True,

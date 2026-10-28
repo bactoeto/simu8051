@@ -136,7 +136,7 @@ class Instruction:
     raw: bytes
     size: int
     cycles: int
-    args: tuple[int, ...]
+    args: bytes
     reserved: bool = False
 
 
@@ -158,7 +158,7 @@ def decode_at(image: Image, pc: int) -> Instruction:
             raw=bytes([opcode]),
             size=1,
             cycles=1,
-            args=(),
+            args=b"",
             reserved=True,
         )
     size = entry["bytes"]

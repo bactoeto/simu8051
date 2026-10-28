@@ -1,0 +1,6 @@
+{
+  "typeCheckingMode": "standard",
+  "include": ["simu8051", "tests", "examples", "tools"],
+  "exclude": ["build", "**/__pycache__"],
+  "extraPaths": ["."]
+}

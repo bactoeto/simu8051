@@ -29,6 +29,12 @@ ISA = json.loads((ROOT / "data" / "isa.json").read_text(encoding="utf-8"))
 GUIDE_FLAGS = {item["syntax"]: item["flags"] for item in ISA["instructions"]}
 UCSIM = shutil.which("ucsim_51")
 
+
+def _ucsim() -> str:
+    if UCSIM is None:
+        raise RuntimeError("ucsim_51 not found")
+    return UCSIM
+
 FULL_VALUES = (0x00, 0x01, 0x0F, 0x10, 0x7F, 0x80, 0x81, 0xFE, 0xFF)
 QUICK_VALUES = (0x00, 0x7F, 0x80, 0xFF)
 DA_VALUES = (0x00, 0x09, 0x0A, 0x0F, 0x10, 0x99, 0x9A, 0xFF)
@@ -291,7 +297,7 @@ def run_ucsim(index: int, case: Case) -> tuple[dict[str, int] | None, str]:
     for address, value in case.iram:
         commands.append(f"set mem iram 0x{address:02x} 0x{value:02x}")
     commands += ["step 1", "info reg", "quit"]
-    args = [UCSIM, "-t", "51", "-q"]
+    args = [_ucsim(), "-t", "51", "-q"]
     for command in commands:
         args += ["-e", command]
     try:
@@ -309,7 +315,7 @@ def run_ucsim(index: int, case: Case) -> tuple[dict[str, int] | None, str]:
 
 def ucsim_version() -> str:
     try:
-        proc = subprocess.run([UCSIM, "-v"], text=True, capture_output=True, timeout=10)
+        proc = subprocess.run([_ucsim(), "-v"], text=True, capture_output=True, timeout=10)
         first = (proc.stdout or proc.stderr).strip().splitlines()
         if not first:
             return "unknown"
@@ -334,7 +340,7 @@ def probe_psw_steady_state() -> dict[str, int] | None:
         "info reg",
         "quit",
     ]
-    args = [UCSIM, "-t", "51", "-q"]
+    args = [_ucsim(), "-t", "51", "-q"]
     for command in commands:
         args += ["-e", command]
     try:

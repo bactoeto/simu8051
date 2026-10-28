@@ -19,6 +19,7 @@ class MoreInterrupts(unittest.TestCase):
         c.set_sfr("TCON", 0x10)
         c.tick_cycle()  # IE write inhibits this boundary
         c.tick_cycle()
+        assert c._vector is not None
         self.assertEqual(c._vector["target"], 0x000B)
 
     def test_timer1_interrupt_vector(self):
@@ -30,6 +31,7 @@ class MoreInterrupts(unittest.TestCase):
         c.set_sfr("TCON", 0x40)
         c.tick_cycle()  # IE write inhibits this boundary
         c.tick_cycle()
+        assert c._vector is not None
         self.assertEqual(c._vector["target"], 0x001B)
 
     def test_level_triggered_reissues(self):
@@ -39,6 +41,7 @@ class MoreInterrupts(unittest.TestCase):
         c.drive_pin(3, 2, 0)
         c.tick_cycle()  # IE write inhibits this boundary
         c.tick_cycle()
+        assert c._vector is not None
         self.assertEqual(c._vector["target"], 0x0003)
         self.assertEqual((c.get_sfr("TCON") >> 1) & 1, 1)  # flag not cleared
         # Finish vector; the pin is still low, so the request remains.
@@ -69,6 +72,7 @@ class MoreInterrupts(unittest.TestCase):
         c.drive_pin(3, 2, 0)
         c.tick_cycle()  # edge sampled, request accepted at this boundary
         self.assertIsNotNone(c._vector)
+        assert c._vector is not None
         self.assertEqual(c._vector["target"], 0x0003)
         self.assertEqual((c.get_sfr("TCON") >> 1) & 1, 0)  # edge flag cleared
         c.tick_cycle()  # vector phase 0

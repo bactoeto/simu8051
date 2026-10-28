@@ -4,7 +4,7 @@ from pathlib import Path
 
 from simu8051 import hex as hx
 from simu8051.core import Core
-from simu8051.plugin import Plugin, load_plugin
+from simu8051.plugin import Plugin, PluginContext, load_plugin
 from simu8051.step import Session
 
 
@@ -21,10 +21,10 @@ class CountingPlugin(Plugin):
         self.cycles = 0
         self.instructions = 0
 
-    def on_cycle(self, ctx):
+    def on_cycle(self, ctx: PluginContext) -> None:
         self.cycles += 1
 
-    def on_instruction(self, ctx, inst):
+    def on_instruction(self, ctx: PluginContext, text: str) -> None:
         self.instructions += 1
 
 
@@ -33,19 +33,19 @@ class LifecyclePlugin(Plugin):
         self.events = []
         self.instructions = []
 
-    def setup(self, ctx):
+    def setup(self, ctx: PluginContext) -> None:
         self.events.append("setup")
 
-    def on_start(self, ctx):
+    def on_start(self, ctx: PluginContext) -> None:
         self.events.append("start")
 
-    def on_cycle(self, ctx):
+    def on_cycle(self, ctx: PluginContext) -> None:
         self.events.append("cycle")
 
-    def on_instruction(self, ctx, text):
+    def on_instruction(self, ctx: PluginContext, text: str) -> None:
         self.instructions.append(text)
 
-    def on_stop(self, ctx, reason):
+    def on_stop(self, ctx: PluginContext, reason: str) -> None:
         self.events.append(("stop", reason))
 
 
@@ -84,7 +84,7 @@ class StepTests(unittest.TestCase):
     def test_lifecycle_hooks(self):
         s = session_with([0x00, 0x00])
         p = LifecyclePlugin()
-        p.setup(None)  # load_plugin() does this automatically
+        p.setup(PluginContext(s, p))  # load_plugin() does this automatically
         s.plugins.append(p)
         s.start()
         s.step()
@@ -125,9 +125,10 @@ class StepTests(unittest.TestCase):
             s.start()
             s.step()
             s.run(max_instructions=1)
-            self.assertIn("cycle", p._module.calls)
-            self.assertIn("instruction", p._module.calls)
-            self.assertIn("stop", p._module.calls)
+            calls = getattr(p, "_module").calls
+            self.assertIn("cycle", calls)
+            self.assertIn("instruction", calls)
+            self.assertIn("stop", calls)
 
     def test_plugin_requires_a_hook(self):
         with tempfile.TemporaryDirectory() as d:

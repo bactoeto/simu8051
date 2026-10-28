@@ -12,6 +12,7 @@ class HexTests(unittest.TestCase):
     def test_load_as31_fixture(self):
         img = hx.load_hex(ROOT / "tests" / "fixtures" / "sub1.hex")
         self.assertEqual(img.min_addr, 0)
+        assert img.max_addr is not None
         self.assertGreaterEqual(img.max_addr, 0x40)
         inst = hx.decode_at(img, 0)
         self.assertEqual(inst.form, "LJMP_addr16")

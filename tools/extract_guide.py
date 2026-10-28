@@ -80,7 +80,7 @@ def clean_lines(lines: list[str]) -> str:
 
 def split_blocks(lines: list[str], start_idx: int) -> list[dict]:
     """Split the instruction-definitions region into heading-delimited blocks."""
-    headings: list[tuple[int, str, str]] = []
+    headings: list[tuple[int, str, str, str]] = []
     for i in range(start_idx, len(lines)):
         raw = lines[i]
         if not raw or raw[0].isspace():

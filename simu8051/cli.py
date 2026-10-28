@@ -199,7 +199,7 @@ def format_mem(session: Session, space: str, address: int, count: int) -> str:
     values = []
     for i in range(count):
         addr = (address + i) & 0xFFFF if space in {"code", "xdata"} else (address + i) & 0xFF
-        values.append(f"{core.read(space, addr) if hasattr(core, 'read') else _read_space(core, space, addr):02X}")
+        values.append(f"{_read_space(core, space, addr):02X}")
     return f"{space}[0x{address:04X}..]: " + " ".join(values)
 
 

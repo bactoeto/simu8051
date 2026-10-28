@@ -21,6 +21,7 @@ class InterruptPriority(unittest.TestCase):
         c.drive_pin(3, 2, 0)
         c.tick_cycle()
         # IE0 and TF0 are both pending, same priority: IE0 wins naturally.
+        assert c._vector is not None
         self.assertEqual(c._vector["target"], 0x0003)
         self.assertEqual(c._active_prio, [0])
 
@@ -44,6 +45,7 @@ class InterruptPriority(unittest.TestCase):
         c.set_sfr("TH0", 0xFF)
         c.set_sfr("TL0", 0xFF)
         c.tick_cycle()
+        assert c._vector is not None
         self.assertEqual(c._vector["target"], 0x000B)
         self.assertEqual(c._active_prio, [0, 1])
 
@@ -70,6 +72,7 @@ class IdleGate(unittest.TestCase):
         c.tick_cycle()
         c.drive_pin(3, 2, 0)
         c.tick_cycle()
+        assert c._vector is not None
         self.assertIn(c._vector["target"], (0x0003,))
         self.assertEqual(c.get_sfr("PCON") & 1, 0)
 
