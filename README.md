@@ -74,6 +74,10 @@ quit
 The command list is printed when the interactive prompt starts. Type `help`
 or `?` to show it again.
 
+Interactive mode keeps history in `~/.local/state/simu8051/history` (or
+`$XDG_STATE_HOME/simu8051/history`), completes commands with Tab, and supports
+Ctrl-L to clear the screen.
+
 The default persistent display is `regs`, printed after every execution
 stop. Use `--no-default-display` to disable it.
 

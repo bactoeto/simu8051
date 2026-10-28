@@ -3,12 +3,21 @@
 from __future__ import annotations
 
 import argparse
+import atexit
+import glob
+import os
 import shlex
 import sys
 from pathlib import Path
 
+try:
+    import readline as _readline
+except ImportError:  # Windows without pyreadline3
+    _readline = None
+
 from . import hex as hexmod
 from .core import Core
+from .mem_table import SFR
 from .plugin import load_plugin
 from .step import Session
 
@@ -16,6 +25,107 @@ COMMON_SFRS = [
     "P0", "P1", "P2", "P3", "SP", "DPL", "DPH", "PSW", "ACC", "B",
     "IE", "IP", "TCON", "TMOD", "TH0", "TL0", "TH1", "TL1", "SCON", "PCON",
 ]
+
+COMMANDS = (
+    "run", "step", "cycle", "continue", "break", "delete",
+    "regs", "sfr", "x", "dis", "reset", "load",
+    "display", "undisplay", "enable", "disable", "info",
+    "trace", "help", "quit", "exit", "q",
+)
+REG_NAMES = ("A", "B", "PSW", "SP", "DPL", "DPH", "DPTR", "PC", "R0", "R1",
+             "R2", "R3", "R4", "R5", "R6", "R7")
+SFR_NAMES = tuple(sorted(SFR))
+SPACES = ("code", "iram", "sfr", "direct", "xdata", "bit")
+DISPLAY_KINDS = ("regs", "pc", "reg", "sfr", "mem", "bit")
+INFO_KINDS = ("break", "display")
+
+
+def history_path() -> Path:
+    """Return the readline history file, honouring XDG_STATE_HOME."""
+    state = os.environ.get("XDG_STATE_HOME")
+    base = Path(state) if state else Path.home() / ".local" / "state"
+    return base / "simu8051" / "history"
+
+
+def path_candidates(text: str) -> list[str]:
+    """Complete file system paths for the `load` command."""
+    matches = []
+    for found in glob.glob(os.path.expanduser(text) + "*"):
+        matches.append(found + os.sep if os.path.isdir(found) else found)
+    return sorted(matches)
+
+
+def completion_candidates(tokens: list[str], text: str) -> list[str]:
+    """Return possible completions for the word after `tokens`."""
+    if not tokens:
+        return [name for name in COMMANDS if name.startswith(text)]
+    head = tokens[0].lower()
+    if head == "load" and len(tokens) == 1:
+        return path_candidates(text)
+    if head == "sfr" and len(tokens) == 1:
+        return [name for name in SFR_NAMES if name.lower().startswith(text.lower())]
+    if head == "x" and len(tokens) == 1:
+        return [name for name in SPACES if name.startswith(text.lower())]
+    if head == "display":
+        if len(tokens) == 1:
+            return [name for name in DISPLAY_KINDS if name.startswith(text.lower())]
+        kind = tokens[1].lower()
+        if kind == "mem" and len(tokens) == 2:
+            return [name for name in SPACES if name.startswith(text.lower())]
+        if kind == "reg" and len(tokens) == 2:
+            return [name for name in REG_NAMES if name.lower().startswith(text.lower())]
+        if kind == "sfr" and len(tokens) == 2:
+            return [name for name in SFR_NAMES if name.lower().startswith(text.lower())]
+    if head == "break" and len(tokens) == 1:
+        return ["cycle"] if "cycle".startswith(text.lower()) else []
+    if head == "info" and len(tokens) == 1:
+        return [name for name in INFO_KINDS if name.startswith(text.lower())]
+    if head == "trace" and len(tokens) == 1:
+        return [name for name in ("on", "off") if name.startswith(text.lower())]
+    if head == "reset" and len(tokens) == 1:
+        return ["cold"] if "cold".startswith(text.lower()) else []
+    return []
+
+
+def _completer(text: str, state: int) -> str | None:
+    if _readline is None:
+        return None
+    line = _readline.get_line_buffer()
+    tokens = line[: _readline.get_begidx()].split()
+    matches = completion_candidates(tokens, text)
+    return matches[state] if state < len(matches) else None
+
+
+_history_installed = False
+
+
+def install_readline() -> None:
+    """Enable history and completion when stdin is a terminal."""
+    global _history_installed
+    if _readline is None or _history_installed or not sys.stdin.isatty():
+        return
+    _history_installed = True
+    path = history_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _readline.read_history_file(str(path))
+    except OSError:
+        pass
+    _readline.set_history_length(1000)
+    _readline.set_completer(_completer)
+    _readline.parse_and_bind("tab: complete")
+    _readline.parse_and_bind("C-l: clear-screen")
+    atexit.register(_save_history)
+
+
+def _save_history() -> None:
+    if _readline is None:
+        return
+    try:
+        _readline.write_history_file(str(history_path()))
+    except OSError:
+        pass
+
 
 HELP_TEXT = """\
 Commands
@@ -53,6 +163,7 @@ Commands
   Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000
   Spaces    code | iram | sfr | direct | xdata | bit
   Display   regs | pc | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]
+  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit
 """
 
 
@@ -347,10 +458,14 @@ class CLI:
             print(f"unknown command: {cmd}")
 
     def loop(self) -> int:
+        install_readline()
         print(HELP_TEXT)
         while not self.quit:
             try:
                 line = input("8051> ")
+            except KeyboardInterrupt:
+                print()
+                continue
             except EOFError:
                 print()
                 break
