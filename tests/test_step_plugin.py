@@ -107,6 +107,42 @@ class StepTests(unittest.TestCase):
             s.step()
             self.assertEqual(s.core.read_direct(0x21), 0x77)
 
+    def test_load_hook_functions(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "plug.py"
+            path.write_text(
+                "calls = []\n"
+                "def on_cycle(ctx):\n"
+                "    calls.append('cycle')\n"
+                "def on_instruction(ctx, text):\n"
+                "    calls.append('instruction')\n"
+                "def on_stop(ctx, reason):\n"
+                "    calls.append('stop')\n"
+            )
+            s = session_with([0x00, 0x00])
+            p = load_plugin(path, s)
+            s.plugins.append(p)
+            s.start()
+            s.step()
+            s.run(max_instructions=1)
+            self.assertIn("cycle", p._module.calls)
+            self.assertIn("instruction", p._module.calls)
+            self.assertIn("stop", p._module.calls)
+
+    def test_plugin_requires_a_hook(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "plug.py"
+            path.write_text("x = 1\n")
+            with self.assertRaises(ImportError):
+                load_plugin(path, session_with([0x00]))
+
+    def test_class_plugin_is_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "plug.py"
+            path.write_text("class Stimulus:\n    pass\n")
+            with self.assertRaises(ImportError):
+                load_plugin(path, session_with([0x00]))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,12 @@
 """Plugin API for cycle-level stimuli.
 
-A plugin is a plain Python file exposing ``setup(ctx)`` or a ``Plugin``
-subclass. It uses ``ctx`` to read/write memory, drive pins, schedule callbacks
-by machine cycle, or stop the run.
+A plugin is a plain Python file with optional hook functions:
+
+    setup(ctx), on_start(ctx), on_cycle(ctx),
+    on_instruction(ctx, text), on_interrupt(ctx, name), on_stop(ctx, reason)
+
+It uses ``ctx`` to read/write memory, drive pins, schedule callbacks by
+machine cycle, or stop the run.
 
 For editor/type-checker support, annotate the context parameter::
 
@@ -161,6 +165,14 @@ class PluginContext:
         self.session.stop(reason)
 
 
+HOOKS = ("setup", "on_start", "on_cycle", "on_instruction", "on_interrupt", "on_stop")
+
+
+def _hook(module, name: str):
+    fn = getattr(module, name, None)
+    return fn if callable(fn) and not isinstance(fn, type) else None
+
+
 def load_plugin(path: str | Path, session: "Session") -> Plugin:
     """Load a plugin file and return an initialized Plugin instance."""
     path = Path(path)
@@ -170,21 +182,41 @@ def load_plugin(path: str | Path, session: "Session") -> Plugin:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    setup_fn = getattr(module, "setup", None)
-    if callable(setup_fn) and not isinstance(setup_fn, type):
-        plugin = _FunctionPlugin(setup_fn)
-    else:
-        cls = getattr(module, "Plugin", None)
-        if cls is None or not issubclass(cls, Plugin):
-            raise ImportError(f"{path}: expected setup(ctx), Plugin subclass, or Plugin class")
-        plugin = cls()
+    if not any(_hook(module, name) for name in HOOKS):
+        raise ImportError(
+            f"{path}: plugin must define setup(ctx) or a hook function "
+            f"({', '.join(HOOKS)})"
+        )
+    plugin = _FunctionPlugin(module)
     plugin.setup(PluginContext(session, plugin))
     return plugin
 
 
 class _FunctionPlugin(Plugin):
-    def __init__(self, setup_fn: Callable[[PluginContext], None]):
-        self._setup_fn = setup_fn
+    """Adapter that dispatches hook calls to module-level functions."""
+
+    def __init__(self, module):
+        self._module = module
+
+    def _call(self, name: str, *args) -> None:
+        fn = _hook(self._module, name)
+        if fn is not None:
+            fn(*args)
 
     def setup(self, ctx: PluginContext) -> None:
-        self._setup_fn(ctx)
+        self._call("setup", ctx)
+
+    def on_start(self, ctx: PluginContext) -> None:
+        self._call("on_start", ctx)
+
+    def on_cycle(self, ctx: PluginContext) -> None:
+        self._call("on_cycle", ctx)
+
+    def on_instruction(self, ctx: PluginContext, text: str) -> None:
+        self._call("on_instruction", ctx, text)
+
+    def on_interrupt(self, ctx: PluginContext, name: str) -> None:
+        self._call("on_interrupt", ctx, name)
+
+    def on_stop(self, ctx: PluginContext, reason: str) -> None:
+        self._call("on_stop", ctx, reason)

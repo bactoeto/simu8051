@@ -1,5 +1,10 @@
 """Typed plugin template.
 
+A plugin is a file with hook functions. All of them are optional:
+
+    setup(ctx), on_start(ctx), on_cycle(ctx),
+    on_instruction(ctx, text), on_interrupt(ctx, name), on_stop(ctx, reason)
+
 Copy this file and change the cycle numbers, addresses and values.
 
 Run:
@@ -20,3 +25,9 @@ def at_cycle_100(ctx: PluginContext) -> None:
 def setup(ctx: PluginContext) -> None:
     # schedule_at(N, f) calls f(ctx) after machine cycle N.
     ctx.schedule_at(100, at_cycle_100)
+
+
+def on_cycle(ctx: PluginContext) -> None:
+    # Called after every machine cycle.
+    if ctx.cycle == 50:
+        print("cycle 50, PC", hex(ctx.pc))
