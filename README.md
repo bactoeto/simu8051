@@ -44,8 +44,53 @@ image = load_hex("firmware.hex")
 core = Core()
 session = Session(core=core, image=image)
 session.start()
-session.run(max_cycles=100_000)
+result = session.run(max_cycles=100_000)
+print(core.pc, core.get_reg("A"), result.reason)
 ```
+
+`simu8051/__init__.py` lists the supported exports. Names starting with `_`
+are internal and may change.
+
+`Core` — CPU and memory:
+
+| Member | Meaning |
+|---|---|
+| `execute_instruction()` | execute one instruction; returns `pc`, `next_pc`, `cycles`, `halted` |
+| `tick_cycle()` | advance one machine cycle; returns events |
+| `reset(cold=False)` | reset; `cold=True` clears IRAM and XDATA |
+| `read_direct(addr)` / `write_direct(addr, value)` | direct space, `0x00-0xFF` |
+| `read_indirect(addr)` / `write_indirect(addr, value)` | `@Ri` space |
+| `read_latch(addr)` / `read_bit(bit)` | SFR latches and bit space |
+| `read_xdata(addr)` / `write_xdata(addr, value)` | external data memory |
+| `read_code(addr)` | program memory |
+| `get_reg(name)` / `set_reg(name, value)` | `A B PSW SP DPL DPH DPTR PC R0-R7` |
+| `get_sfr(name)` / `set_sfr(name, value)` | SFR by name or address |
+| `drive_pin(port, bit, value)`, `drive_port(port, mask, value)`, `release_pin(port, mask)` | external pin levels |
+
+`Session` — stepping, breakpoints and plugins:
+
+| Member | Meaning |
+|---|---|
+| `start()` | dispatch `on_start` to plugins |
+| `step()` / `step_cycle()` | run one instruction / one machine cycle |
+| `run(max_cycles=None, max_instructions=None)` | run until a stop |
+| `break_at(addr)` / `break_at_cycle(n)` / `clear_breakpoints()` | breakpoints |
+| `schedule_at(cycle, callback)` / `stop(reason)` | plugin control |
+| `reset(cold=False)` | reset the session |
+
+`step()` and `run()` return `StepResult` with `pc`, `next_pc`, `cycles`,
+`reason`, `instruction`, `halted` and `idle`.
+
+Intel HEX:
+
+| Function | Meaning |
+|---|---|
+| `load_hex(path)` | parse a HEX file into an `Image` |
+| `decode_at(image, pc)` | decode one instruction |
+| `disassemble(image, start=0, end=0x10000)` | decode a range |
+| `format_instruction(inst)` | text form |
+
+See [Plugins](#plugins) for the plugin API.
 
 ### Commands
 
@@ -82,6 +127,9 @@ The default persistent display is `regs`, printed after every execution
 stop. Use `--no-default-display` to disable it.
 
 ## Layout
+
+Only `simu8051/` is needed at runtime; the other directories are development
+material.
 
 ```text
 simu8051/            simulator package
