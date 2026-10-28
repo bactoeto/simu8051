@@ -23,9 +23,9 @@ class CompletionTests(unittest.TestCase):
         self.assertEqual(completion_candidates(["display", "reg"], "p"), ["PSW", "PC"])
 
     def test_misc(self):
-        self.assertEqual(completion_candidates(["info"], "b"), ["break"])
+        self.assertEqual(completion_candidates(["info"], "b"), ["break", "b"])
         self.assertEqual(completion_candidates(["trace"], "o"), ["on", "off"])
-        self.assertEqual(completion_candidates(["reset"], "c"), ["cold"])
+        self.assertEqual(completion_candidates(["reset"], "c"), ["cold", "c"])
 
     def test_load_paths(self):
         prefix = str(ROOT / "tests" / "fixtures" / "sub1")

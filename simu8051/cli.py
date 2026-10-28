@@ -57,6 +57,11 @@ ALIASES = {
     "q": "quit",
     "exit": "quit",
 }
+def canonical(word: str) -> str:
+    """Resolve a command or subcommand alias to its canonical name."""
+    return ALIASES.get(word.lower(), word.lower())
+
+
 REG_NAMES = ("A", "B", "PSW", "SP", "DPL", "DPH", "DPTR", "PC", "R0", "R1",
              "R2", "R3", "R4", "R5", "R6", "R7")
 SFR_NAMES = tuple(sorted(SFR))
@@ -102,13 +107,13 @@ def completion_candidates(tokens: list[str], text: str) -> list[str]:
         if kind == "sfr" and len(tokens) == 2:
             return [name for name in SFR_NAMES if name.lower().startswith(text.lower())]
     if head == "break" and len(tokens) == 1:
-        return ["cycle"] if "cycle".startswith(text.lower()) else []
+        return [name for name in ("cycle", "cy") if name.startswith(text.lower())]
     if head == "info" and len(tokens) == 1:
-        return [name for name in INFO_KINDS if name.startswith(text.lower())]
+        return [name for name in (*INFO_KINDS, "b", "dp") if name.startswith(text.lower())]
     if head == "trace" and len(tokens) == 1:
         return [name for name in ("on", "off") if name.startswith(text.lower())]
     if head == "reset" and len(tokens) == 1:
-        return ["cold"] if "cold".startswith(text.lower()) else []
+        return [name for name in ("cold", "c") if name.startswith(text.lower())]
     return []
 
 
@@ -167,34 +172,33 @@ HELP_TEXT = """\
 Commands
 
   Execution
-    run, r [N]             run N instructions; omit N to run until a stop
-    step, s [N]            execute N instructions (default 1)
-    cycle, cy [N]          execute N machine cycles (default 1)
-    continue, c            resume after a stop
-    reset, res [cold]      reset; "cold" also clears IRAM and XDATA
+    run, r [N]                 run N instructions; omit N to run until a stop
+    step, s [N]                execute N instructions (default 1)
+    cycle, cy [N]              execute N machine cycles (default 1)
+    continue, c                resume after a stop
+    reset, res [cold]          reset; "cold" also clears IRAM and XDATA
 
   Breakpoints
-    break, b ADDR          stop at PC ADDR, e.g. 0x0030
-    break cycle N          stop at machine cycle N
-    delete, del            clear all breakpoints
-    info, i break          list breakpoints
+    break, b ADDR              stop at PC ADDR, e.g. 0x0030
+    break cycle N              stop at machine cycle N
+    delete, del                clear all breakpoints
+    info, i break|display      list breakpoints or displays
 
   Inspection
-    regs, reg              PC, ACC, B, PSW, SP, DPTR, cycle
-    sfr, sf [NAME]         all common SFRs, or one by name
-    x SPACE ADDR [N]       dump N bytes (default 16)
+    regs, reg                  PC, ACC, B, PSW, SP, DPTR, cycle
+    sfr, sf [NAME]             all common SFRs, or one by name
+    x SPACE ADDR [N]           dump N bytes (default 16)
     disassemble, d [ADDR] [N]  disassemble N instructions (default 8)
-    display, dp SPEC       add a persistent display
-    undisplay, und N       remove display item N
-    enable, on N           turn display item N on
-    disable, off N         turn display item N off
-    info display           list display items
+    display, dp SPEC           add a persistent display
+    undisplay, und N           remove display item N
+    enable, on N               turn display item N on
+    disable, off N             turn display item N off
 
   Other
-    load, l FILE           load another HEX file
-    trace, t on|off        print each executed instruction
-    help, h, ?             show this text
-    quit, q, exit          leave the simulator
+    load, l FILE               load another HEX file
+    trace, t on|off            print each executed instruction
+    help, h, ?                 show this text
+    quit, q, exit              leave the simulator
 
   Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000
   Spaces    code | iram | sfr | direct | xdata | bit
@@ -366,7 +370,7 @@ class CLI:
     def cmd_break(self, args: list[str]) -> None:
         if not args:
             raise ValueError("usage: break ADDR | break cycle N")
-        if args[0].lower() == "cycle":
+        if canonical(args[0]) == "cycle":
             cycle = parse_int(args[1])
             self.session.break_at_cycle(cycle)
             print(f"breakpoint at cycle {cycle}")
@@ -376,7 +380,7 @@ class CLI:
             print(f"breakpoint at 0x{addr:04X}")
 
     def cmd_info(self, args: list[str]) -> None:
-        what = args[0].lower() if args else "break"
+        what = canonical(args[0]) if args else "break"
         if what == "break":
             print("pc:", " ".join(f"0x{x:04X}" for x in sorted(self.session.breakpoints_pc)) or "(none)")
             print("cycle:", " ".join(str(x) for x in sorted(self.session.breakpoints_cycle)) or "(none)")
@@ -430,7 +434,8 @@ class CLI:
             print(f"{inst.address:04X}  {inst.raw.hex():<6} {hexmod.format_instruction(inst)}")
 
     def cmd_reset(self, args: list[str]) -> None:
-        self.session.reset(cold=bool(args and args[0].lower() == "cold"))
+        word = args[0].lower() if args else ""
+        self.session.reset(cold=word == "c" or canonical(word) == "cold")
         print("reset")
         print_displays(self.session, self.displays)
 
@@ -448,7 +453,7 @@ class CLI:
         if not parts:
             return
         cmd, args = parts[0].lower(), parts[1:]
-        cmd = ALIASES.get(cmd, cmd)
+        cmd = canonical(cmd)
         if cmd == "quit":
             self.quit = True
         elif cmd == "help":

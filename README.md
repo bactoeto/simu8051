@@ -93,7 +93,7 @@ continue, c             continue after a breakpoint
 break, b ADDR           set a PC breakpoint
 break cycle N           set a cycle breakpoint
 delete, del             clear breakpoints
-info, i break           list breakpoints
+info, i break|display   list breakpoints or displays
 regs, reg               print common registers
 sfr, sf [NAME]          print SFRs
 x SPACE ADDR [N]        dump memory (code/iram/sfr/direct/xdata/bit)

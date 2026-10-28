@@ -36,6 +36,19 @@ class CLITests(unittest.TestCase):
         self.assertIn("pc breakpoint 0x0030", proc.stdout)
         self.assertIn("PC=0x0036", proc.stdout)
 
+    def test_subcommand_aliases(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="display sfr TCON\ni dp\nb cy 10\nq\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("2: [on] sfr TCON", proc.stdout)
+        self.assertIn("breakpoint at cycle 10", proc.stdout)
+
     def test_batch_run(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE), "--batch", "--max-cycles", "20"],
