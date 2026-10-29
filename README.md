@@ -59,7 +59,7 @@ regs, reg               show common registers
 sfr, sf [NAME]          print SFRs
 x SPACE ADDR [N]        dump; 8 per row, default 2 rows: i (internal RAM), x (external RAM), c (ROM)
 w SPACE ADDR VALUE...   write memory: i, x, c (c patches program memory)
-disassemble, d [ADDR] [N]  disassemble
+disassemble, d [N] [ADDR]  disassemble; omit ADDR to start at PC
 reset, res [cold]       reset
 load, l FILE            load another HEX file
 display, dp COMMAND...   run a command after every stop

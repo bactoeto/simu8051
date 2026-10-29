@@ -140,13 +140,27 @@ class CLITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("[1] x i 0x20 4", proc.stdout)
 
+    def test_disassemble_count_starts_at_pc(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="d 2\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("0000  020030   LJMP    0x0030", proc.stdout)
+        self.assertIn("0003  ff", proc.stdout)
+        self.assertEqual(proc.stdout.count("NULL"), 1)
+
     def test_unwritten_code_shows_null(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],
             cwd=ROOT,
             text=True,
             capture_output=True,
-            input="x c 3 2\nd 3 2\nquit\n",
+            input="x c 3 2\nd 2 3\nquit\n",
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -178,7 +192,7 @@ class CLITests(unittest.TestCase):
             "x i 0x20 1\n"
             "x x 0 2\n"
             "x c 0x0030 1\n"
-            "disassemble 0x0030 1\n"
+            "disassemble 1 0x0030\n"
             "reset cold\n"
             "load tests/fixtures/sub2.hex\n"
             "step\n"

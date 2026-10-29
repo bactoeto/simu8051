@@ -177,7 +177,7 @@ Commands
   sfr                  sf       [NAME]               all SFRs, or one by name
   x                    SPACE ADDR [N]               dump; 8 per row, default 2 rows
   w                    SPACE ADDR VALUE...          write i, x or c
-  disassemble          d        [ADDR] [N]           disassemble N instructions
+  disassemble          d        [N] [ADDR]           disassemble N instructions
   display              dp       COMMAND...           run a command after every stop
   undisplay            und      N                    remove a display item
   enable               on       N                    enable a display item
@@ -190,7 +190,7 @@ Commands
 
   Numbers   decimal or 0x/0o/0b prefix
   Spaces    i = internal RAM | x = external RAM | c = ROM
-  Display   sfr [NAME] | x SPACE ADDR [N] | disassemble [ADDR] [N]
+  Display   sfr [NAME] | x SPACE ADDR [N] | disassemble [N] [ADDR]
   Output    current instruction and registers after every stop
   Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit
 """
@@ -578,8 +578,8 @@ class CLI:
         return format_mem(self.session, space, address, len(values))
 
     def disassemble_lines(self, args: list[str]) -> list[list[str]]:
-        address = parse_int(args[0]) if args else self.session.pc
-        count = parse_int(args[1]) if len(args) > 1 else 8
+        count = parse_int(args[0]) if args else 8
+        address = parse_int(args[1]) if len(args) > 1 else self.session.pc
         return disassembly_lines(self.session, address, count)
 
     def cmd_disassemble(self, args: list[str]) -> str:
