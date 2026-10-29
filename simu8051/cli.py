@@ -58,7 +58,7 @@ HELP_SECTIONS = (
             ("x", "", "SPACE ADDR [N]", "dump; 8 per row, default 2 rows"),
             ("w", "", "SPACE ADDR VALUE...", "write i, x or c"),
             ("disassemble", "d", "[N] [ADDR]", "disassemble N instructions"),
-            ("display", "dp", "COMMAND...", "run a command after every command"),
+            ("display", "dp", "COMMAND...", "watch a command after execution and state changes"),
             ("undisplay", "und", "N", "remove a display item"),
             ("enable", "on", "N", "enable a display item"),
             ("disable", "off", "N", "disable a display item"),
@@ -109,9 +109,20 @@ def _format_help() -> str:
 
 HELP_TEXT = _format_help()
 
+DISPLAY_TRIGGERS = frozenset({
+    "step", "cycle", "run", "continue",
+    "reset", "load",
+    "display", "enable",
+})
+
 
 def parse_int(text: str) -> int:
     return int(text, 0)
+
+
+def command_name(line: str) -> str | None:
+    parts = shlex.split(line)
+    return canonical(parts[0]) if parts else None
 
 
 def parse_display(args: list[str]) -> list[str]:
@@ -399,13 +410,15 @@ class CLI:
             except EOFError:
                 print()
                 break
+            name = None
             try:
+                name = command_name(line)
                 text = self.run_command(line)
                 if text:
                     print(text)
             except Exception as exc:
                 print(f"error: {exc}", file=sys.stderr)
-            if line.strip() and not self.quit:
+            if name in DISPLAY_TRIGGERS and not self.quit:
                 self.after_command()
         stop = self.session.last_stop
         return 1 if stop is not None and stop.kind == "trap" else 0

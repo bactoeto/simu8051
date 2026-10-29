@@ -62,7 +62,7 @@ w SPACE ADDR VALUE...   write memory: i, x, c (c patches program memory)
 disassemble, d [N] [ADDR]  disassemble; omit ADDR to start at PC
 reset, res [cold]       reset
 load, l FILE            load another HEX file
-display, dp COMMAND...   run a command after every command
+display, dp COMMAND...   watch after execution, reset/load, display/enable
 undisplay, und N        remove a display item
 enable, on N            enable a display item
 disable, off N          disable a display item
@@ -82,13 +82,14 @@ or `?` to show it again.
 | `--break cycle:N` | set a cycle breakpoint; repeatable |
 | `--max-cycles N` | cycle limit for `--run` / `--batch` |
 | `--run`, `--batch` | run without the REPL |
-| `--display COMMAND` | run a command after every command; repeatable |
+| `--display COMMAND` | watch a command after execution and state changes; repeatable |
 
 `--display` takes a command string, for example `--display "x i 0x20 4"`.
-The command runs after every command; with `--batch` it runs once after the
-run. Allowed commands are `sfr`, `x` and `disassemble`; the register table is
-always shown after stops. A dump always starts on an eight-byte row boundary;
-without `N` it shows two rows.
+The command runs after execution commands, `reset`/`load`, `display` and
+`enable`; with `--batch` it runs once after the run. Allowed commands are
+`sfr`, `x` and `disassemble`; the register table is always shown after stops.
+A dump always starts on an eight-byte row boundary; without `N` it shows two
+rows.
 
 Exit codes: `0` for a normal stop, `1` when execution hits a reserved
 opcode, `2` for a startup error.
@@ -106,9 +107,9 @@ Interactive mode keeps history in `~/.local/state/simu8051/history` (or
 Ctrl-L to clear the screen.
 
 After every stop the CLI prints the current instruction and the register
-table. Each display command runs after every command (and once after a
-`--batch` run). Values that changed since the previous output are shown in
-red; `reset` and `load` start a fresh baseline.
+table. Each display command runs after execution, `reset`/`load`, `display`
+and `enable` (and once after a `--batch` run). Values that changed since the
+previous output are shown in red; `reset` and `load` start a fresh baseline.
 
 ## Layout
 

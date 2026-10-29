@@ -144,7 +144,7 @@ class CLITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertIn("error:", proc.stderr)
 
-    def test_display_runs_after_every_command(self):
+    def test_display_only_runs_after_trigger_commands(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],
             cwd=ROOT,
@@ -155,13 +155,20 @@ class CLITests(unittest.TestCase):
                 "reg\n"
                 "x i 0x20 1\n"
                 "help\n"
+                "d 1\n"
+                "info display\n"
+                "w i 0x20 1\n"
+                "disable 1\n"
+                "step\n"
+                "enable 1\n"
+                "step\n"
                 "\n"
                 "quit\n"
             ),
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(proc.stdout.count("[1] sfr TCON:"), 4)
+        self.assertEqual(proc.stdout.count("[1] sfr TCON:"), 3)
 
     def test_display_runs_after_load(self):
         proc = subprocess.run(
