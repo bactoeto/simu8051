@@ -5,7 +5,7 @@ from pathlib import Path
 from simu8051 import hex as hx
 from simu8051.core import Core
 from simu8051.plugin import Plugin, PluginContext, load_plugin
-from simu8051.step import Session
+from simu8051.session import Session
 
 
 def session_with(code, name="mem.hex"):

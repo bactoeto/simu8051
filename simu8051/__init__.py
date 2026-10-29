@@ -3,7 +3,7 @@
 from .core import Core, Event, Trap
 from .hex import HexError, Image, Instruction, decode_at, disassemble, load_hex
 from .plugin import Plugin, PluginContext
-from .step import Session, StepResult
+from .session import Session, StepResult
 
 __all__ = [
     "Core",

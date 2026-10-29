@@ -19,7 +19,7 @@ from . import hex as hexmod
 from .core import Core
 from .mem_table import SFR
 from .plugin import load_plugin
-from .step import Session
+from .session import Session
 
 COMMON_SFRS = [
     "P0", "P1", "P2", "P3", "SP", "DPL", "DPH", "PSW", "ACC", "B",

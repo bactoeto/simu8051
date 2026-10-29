@@ -133,7 +133,7 @@ material.
 simu8051/            simulator package
   cli.py             reference CLI (optional front end)
   __main__.py        entry point for `python3 -m simu8051`
-  step.py            session, stepping, breakpoints, plugin dispatch
+  session.py         Session: the public API for stepping and inspection
   core.py            CPU, memory, ports, timers, interrupts
   hex.py             Intel HEX parser, decoder, disassembler
   plugin.py          plugin API and loader

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Literal, Optional, TypeAlias
 
 if TYPE_CHECKING:
     from .core import Core
-    from .step import Session
+    from .session import Session
 
 Space: TypeAlias = Literal["code", "iram", "sfr", "direct", "xdata", "bit"]
 
