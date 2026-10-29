@@ -57,7 +57,7 @@ delete, del             clear breakpoints
 info, i break|display   list breakpoints or displays
 regs, reg               print common registers
 sfr, sf [NAME]          print SFRs
-x SPACE ADDR [N]        dump, 8 per line: i (internal RAM), x (external RAM), c (ROM)
+x SPACE ADDR [N]        dump; 8 per row, default 2 rows: i (internal RAM), x (external RAM), c (ROM)
 w SPACE ADDR VALUE...   write memory: i, x, c (c patches the loaded image)
 disassemble, d [ADDR] [N]  disassemble
 reset, res [cold]       reset

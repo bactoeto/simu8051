@@ -161,7 +161,7 @@ def prompt_text() -> str:
 
 
 HELP_TEXT = """\
-Commands\n\n  Command      Aliases  Arguments            Description\n  ------------------------------------------------------\n\n  Execution\n  run          r        [N]                  run N instructions; omit N to run until a stop\n  step         s        [N]                  execute N instructions (default 1)\n  cycle        cy       [N]                  execute N machine cycles (default 1)\n  continue     c                             resume after a stop\n  reset        res      [cold]               reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR                 stop at PC ADDR, e.g. 0x0030\n  break cycle           N                    stop at machine cycle N\n  delete       del                           clear all breakpoints\n  info         i        break|display        list breakpoints or displays\n\n  Inspection\n  regs         reg                           PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]               all common SFRs, or one by name\n  x                     SPACE ADDR [N]       dump N bytes, 8 per line: i, x, c\n  w                     SPACE ADDR VALUE...  write bytes: i, x, c (c patches ROM)\n  disassemble  d        [ADDR] [N]           disassemble N instructions (default 8)\n  display      dp       SPEC                 add a persistent display\n  undisplay    und      N                    remove display item N\n  enable       on       N                    turn display item N on\n  disable      off      N                    turn display item N off\n\n  Other\n  load         l        FILE                 load another HEX file\n  help         h, ?                          show this text\n  quit         q, exit                       leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    i = internal RAM | x = external RAM | c = ROM\n  Display   regs | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Step      current instruction printed after every stop\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
+Commands\n\n  Command      Aliases  Arguments            Description\n  ------------------------------------------------------\n\n  Execution\n  run          r        [N]                  run N instructions; omit N to run until a stop\n  step         s        [N]                  execute N instructions (default 1)\n  cycle        cy       [N]                  execute N machine cycles (default 1)\n  continue     c                             resume after a stop\n  reset        res      [cold]               reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR                 stop at PC ADDR, e.g. 0x0030\n  break cycle           N                    stop at machine cycle N\n  delete       del                           clear all breakpoints\n  info         i        break|display        list breakpoints or displays\n\n  Inspection\n  regs         reg                           PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]               all common SFRs, or one by name\n  x                     SPACE ADDR [N]       dump; 8 per row, default 2 rows: i, x, c\n  w                     SPACE ADDR VALUE...  write bytes: i, x, c (c patches ROM)\n  disassemble  d        [ADDR] [N]           disassemble N instructions (default 8)\n  display      dp       SPEC                 add a persistent display\n  undisplay    und      N                    remove display item N\n  enable       on       N                    turn display item N on\n  disable      off      N                    turn display item N off\n\n  Other\n  load         l        FILE                 load another HEX file\n  help         h, ?                          show this text\n  quit         q, exit                       leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    i = internal RAM | x = external RAM | c = ROM\n  Display   regs | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Step      current instruction printed after every stop\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
 
 
 def parse_int(text: str) -> int:
@@ -238,17 +238,26 @@ def format_sfr(session: Session, name: str) -> str:
     return f"{name}=0x{value:02X}"
 
 
-def format_mem(session: Session, space: str, address: int, count: int) -> str:
-    count = ((count + 7) // 8) * 8
+def format_mem(
+    session: Session,
+    space: str,
+    address: int,
+    count: int | None = None,
+) -> str:
+    start = address & ~7
+    if count is None:
+        stop = start + 16
+    else:
+        stop = max((address + count + 7) & ~7, start + 8)
     digits = 4 if space in {"x", "c"} else 2
     mask = 0xFFFF if digits == 4 else 0xFF
     lines = []
-    for offset in range(0, count, 8):
+    for row_start in range(start, stop, 8):
         row = [
-            f"{_read_space(session, space, (address + offset + i) & mask):02X}"
-            for i in range(min(8, count - offset))
+            f"{_read_space(session, space, (row_start + i) & mask):02X}"
+            for i in range(8)
         ]
-        lines.append(f"0x{(address + offset) & mask:0{digits}X}: " + " ".join(row))
+        lines.append(f"0x{row_start & mask:0{digits}X}: " + " ".join(row))
     return "\n".join(lines)
 
 
@@ -306,9 +315,11 @@ def parse_display(args: list[str]) -> tuple:
     if kind == "sfr" and len(args) == 2:
         return ("sfr", args[1].upper())
     if kind == "mem" and len(args) in (3, 4):
-        return ("mem", args[1].lower(), parse_int(args[2]), parse_int(args[3]) if len(args) == 4 else 1)
+        count = parse_int(args[3]) if len(args) == 4 else None
+        return ("mem", args[1].lower(), parse_int(args[2]), count)
     if kind == "bit" and len(args) in (2, 3):
-        return ("bit", parse_int(args[1]), parse_int(args[2]) if len(args) == 3 else 1)
+        count = parse_int(args[2]) if len(args) == 3 else None
+        return ("bit", parse_int(args[1]), count)
     raise ValueError("bad display specification")
 
 
@@ -320,9 +331,11 @@ def display_label(spec: tuple) -> str:
     if spec[0] == "sfr":
         return f"sfr {spec[1]}"
     if spec[0] == "mem":
-        return f"mem {spec[1]} 0x{spec[2]:X} {spec[3]}"
+        text = f"mem {spec[1]} 0x{spec[2]:X}"
+        return text if spec[3] is None else f"{text} {spec[3]}"
     if spec[0] == "bit":
-        return f"bit 0x{spec[1]:X} {spec[2]}"
+        text = f"bit 0x{spec[1]:X}"
+        return text if spec[2] is None else f"{text} {spec[2]}"
     return spec[0]
 
 
@@ -433,7 +446,7 @@ class CLI:
         if len(args) < 2 or args[0].lower() not in SPACES:
             raise ValueError("usage: x i|x|c ADDR [N]")
         space, address = args[0].lower(), parse_int(args[1])
-        count = parse_int(args[2]) if len(args) > 2 else 16
+        count = parse_int(args[2]) if len(args) > 2 else None
         print(format_mem(self.session, space, address, count))
 
     def cmd_w(self, args: list[str]) -> None:
