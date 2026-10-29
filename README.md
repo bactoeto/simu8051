@@ -55,6 +55,7 @@ break, b ADDR           set a PC breakpoint
 break cycle N           set a cycle breakpoint
 delete, del             clear breakpoints
 info, i break|display   list breakpoints or displays
+regs, reg               show common registers
 sfr, sf [NAME]          print SFRs
 x SPACE ADDR [N]        dump; 8 per row, default 2 rows: i (internal RAM), x (external RAM), c (ROM)
 w SPACE ADDR VALUE...   write memory: i, x, c (c patches program memory)
@@ -84,7 +85,7 @@ or `?` to show it again.
 | `--display COMMAND` | run a command after every stop; repeatable |
 
 `--display` takes a command string, for example `--display "x i 0x20 4"`.
-The command runs after every stop. Allowed commands are `sfr`, `x` and
+The command runs after every stop. Allowed commands are `regs`, `sfr`, `x` and
 `disassemble`. A dump always starts on an eight-byte row boundary; without
 `N` it shows two rows.
 

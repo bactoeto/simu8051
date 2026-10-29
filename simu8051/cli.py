@@ -27,7 +27,7 @@ COMMON_SFRS = [
 
 COMMANDS = (
     "run", "step", "cycle", "continue", "break", "delete",
-    "sfr", "x", "w", "disassemble", "reset", "load",
+    "regs", "sfr", "x", "w", "disassemble", "reset", "load",
     "display", "undisplay", "enable", "disable", "info", "help", "quit",
 )
 ALIASES = {
@@ -40,6 +40,7 @@ ALIASES = {
     "clear": "delete",
     "d": "disassemble",
     "i": "info",
+    "reg": "regs",
     "sf": "sfr",
     "res": "reset",
     "l": "load",
@@ -53,7 +54,7 @@ ALIASES = {
     "q": "quit",
     "exit": "quit",
 }
-DISPLAY_COMMANDS = ("sfr", "x", "disassemble")
+DISPLAY_COMMANDS = ("regs", "sfr", "x", "disassemble")
 SPACES = ("i", "x", "c")
 INFO_KINDS = ("break", "display")
 SFR_NAMES = Session.sfr_names
@@ -172,6 +173,7 @@ Commands
   info                 i        break|display        list breakpoints or displays
 
   Inspection
+  regs                 reg                           common registers
   sfr                  sf       [NAME]               all SFRs, or one by name
   x                    SPACE ADDR [N]               dump; 8 per row, default 2 rows
   w                    SPACE ADDR VALUE...          write i, x or c
@@ -188,7 +190,7 @@ Commands
 
   Numbers   decimal or 0x/0o/0b prefix
   Spaces    i = internal RAM | x = external RAM | c = ROM
-  Display   sfr [NAME] | x SPACE ADDR [N] | disassemble [ADDR] [N]
+  Display   regs | sfr [NAME] | x SPACE ADDR [N] | disassemble [ADDR] [N]
   Output    current instruction and registers after every stop
   Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit
 """
@@ -308,7 +310,7 @@ def parse_display(args: list[str]) -> list[str]:
         raise ValueError("usage: display COMMAND...")
     head = canonical(args[0])
     if head not in DISPLAY_COMMANDS:
-        raise ValueError("display: use sfr, x or disassemble")
+        raise ValueError("display: use regs, sfr, x or disassemble")
     return [head, *args[1:]]
 
 
@@ -450,6 +452,9 @@ class CLI:
                 for i, item in enumerate(self.displays, 1)
             )
         raise ValueError("info break | info display")
+
+    def cmd_regs(self, args: list[str]) -> str:
+        return self.registers()
 
     def cmd_sfr(self, args: list[str]) -> str:
         names = [args[0].upper()] if args else COMMON_SFRS
@@ -593,8 +598,6 @@ def main(argv=None) -> int:
         cli.after_stop(result.reason)
         return 1 if result.reason.kind == "trap" else 0
 
-    print(f"loaded {args.hexfile}")
-    print(cli.current_step())
     return cli.loop()
 
 
