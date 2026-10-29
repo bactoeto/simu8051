@@ -207,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--isa", type=Path, default=ROOT / "data" / "isa.json")
     ap.add_argument("--memory", type=Path, default=ROOT / "data" / "memory.json")
-    ap.add_argument("--report", type=Path, default=ROOT / "reports" / "data_check.json")
+    ap.add_argument("--report", type=Path, default=ROOT / "build" / "reports" / "data_check.json")
     args = ap.parse_args(argv)
 
     isa = json.loads(args.isa.read_text(encoding="utf-8"))

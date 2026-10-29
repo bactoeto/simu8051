@@ -144,13 +144,13 @@ data/
   isa.json           instruction data
   memory.json        memory, SFR and reset data
 
-tools/               extraction, data build, validation, table generation
+tools/               data extraction, build, validation, table generation
+tools/archive/       ucsim comparison scripts
 tests/               unit and CLI tests
 tests/fixtures/      as31 HEX fixtures
 examples/            plugin examples
-reports/             data review and validation reports
-docs/                source documents
-build/               generated intermediate files
+docs/                source documents (local, not tracked)
+build/               generated intermediates and reports (not tracked)
 ```
 
 ## Data

@@ -9,7 +9,7 @@ Sources:
 
 The output is deterministic: instructions sorted by mnemonic/form, opcodes by
 opcode value. No field is silently defaulted: missing/conflicting data is
-reported in reports/isa_report.json and makes the script exit non-zero.
+reported in build/reports/isa_report.json and makes the script exit non-zero.
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ SCAN = ROOT / "build" / "scan_facts.json"
 MANUAL = ROOT / "tools" / "overrides" / "scan_manual.json"
 GUIDE_TXT = ROOT / "build" / "guide.txt"
 OUT = ROOT / "data" / "isa.json"
-REPORT = ROOT / "reports" / "isa_report.json"
+REPORT = ROOT / "build" / "reports" / "isa_report.json"
 
 FLAGS = ("C", "AC", "OV")
 
