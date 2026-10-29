@@ -197,9 +197,13 @@ on the next machine cycle.
 
 ```bash
 python3 -m unittest discover -s tests
+basedpyright
 python3 tools/check_data.py
 python3 tools/check_form_coverage.py
 ```
+
+CI runs the unit tests on Python 3.11 and 3.14, then the type and data
+checks on 3.14.
 
 ## Scope and limitations
 
