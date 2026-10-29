@@ -334,6 +334,8 @@ class Session:
         was_idle = self._core.idle
         was_halted = self._core.halted
         was_vector = not was_op and not at_boundary
+        if self._trace is not None and at_boundary and not was_idle:
+            self._trace(f"{self._core.cycle:8d} {start_pc:04X} {format_instruction(instruction)}")
 
         try:
             events = self._core.tick_cycle()
@@ -473,7 +475,7 @@ class Session:
 
         instruction = decode_at(self._program, start_pc)
         text = format_instruction(instruction)
-        if self._trace is not None:
+        if self._trace is not None and self._core._at_boundary() and not self._core.idle:
             self._trace(f"{self._core.cycle:8d} {start_pc:04X} {text}")
 
         completed = False
