@@ -595,7 +595,6 @@ def main(argv=None) -> int:
 
     print(f"loaded {args.hexfile}")
     print(cli.current_step())
-    print(cli.registers())
     return cli.loop()
 
 
