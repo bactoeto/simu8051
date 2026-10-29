@@ -178,7 +178,7 @@ Commands
   x                    SPACE ADDR [N]               dump; 8 per row, default 2 rows
   w                    SPACE ADDR VALUE...          write i, x or c
   disassemble          d        [N] [ADDR]           disassemble N instructions
-  display              dp       COMMAND...           run a command after every stop
+  display              dp       COMMAND...           run a command after every command
   undisplay            und      N                    remove a display item
   enable               on       N                    enable a display item
   disable              off      N                    disable a display item
@@ -409,7 +409,6 @@ class CLI:
             print(reason)
         print(self.current_step())
         print(self.registers())
-        self.print_displays()
 
     def display_text(self, item: dict) -> str:
         command = item["command"]
@@ -443,6 +442,9 @@ class CLI:
                 print(f"{prefix} {text}")
             else:
                 print(prefix)
+
+    def after_command(self) -> None:
+        self.print_displays()
 
     # ------------------------------------------------------------------
     # dispatch
@@ -504,7 +506,6 @@ class CLI:
         print("reset")
         print(self.current_step())
         print(self.registers())
-        self.print_displays()
         return None
 
     def cmd_load(self, args: list[str]) -> str:
@@ -641,6 +642,8 @@ class CLI:
                     print(text)
             except Exception as exc:
                 print(f"error: {exc}", file=sys.stderr)
+            if line.strip() and not self.quit:
+                self.after_command()
         stop = self.session.last_stop
         return 1 if stop is not None and stop.kind == "trap" else 0
 
@@ -694,6 +697,7 @@ def main(argv=None) -> int:
     if args.run or args.batch:
         result = session.run(max_cycles=args.max_cycles)
         cli.after_stop(result.reason)
+        cli.after_command()
         return 1 if result.reason.kind == "trap" else 0
 
     return cli.loop()

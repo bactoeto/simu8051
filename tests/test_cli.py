@@ -125,6 +125,37 @@ class CLITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 2)
         self.assertIn("error:", proc.stderr)
 
+    def test_display_runs_after_every_command(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input=(
+                "display sfr TCON\n"
+                "reg\n"
+                "x i 0x20 1\n"
+                "help\n"
+                "\n"
+                "quit\n"
+            ),
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.count("[1] sfr TCON:"), 4)
+
+    def test_display_runs_after_load(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="display x i 0x20 1\nload tests/fixtures/sub2.hex\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.count("[1] x i 0x20 1:"), 2)
+
     def test_display_memory(self):
         proc = subprocess.run(
             [
@@ -138,7 +169,7 @@ class CLITests(unittest.TestCase):
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("[1] x i 0x20 4", proc.stdout)
+        self.assertEqual(proc.stdout.count("[1] x i 0x20 4:"), 1)
 
     def test_disassemble_count_starts_at_pc(self):
         proc = subprocess.run(
