@@ -233,6 +233,69 @@ class CLITests(unittest.TestCase):
         self.assertIn("0x40: 00 00 00 00 00 00 00 00", proc.stdout)
         self.assertNotIn("0x31:", proc.stdout)
 
+    def test_display_rejects_regs(self):
+        from simu8051.cli import parse_display
+
+        for name in ("regs", "reg"):
+            with self.assertRaises(ValueError):
+                parse_display([name])
+
+    def test_register_changes_are_blue(self):
+        from unittest import mock
+
+        from simu8051.cli import BLUE, RESET, CLI
+        from simu8051.session import Session
+
+        session = Session.from_bytes(b"\x00")
+        cli = CLI(session, [])
+        with mock.patch("simu8051.cli.use_color", return_value=True):
+            first = cli.registers()
+            session.set_reg("A", 0x42)
+            session.step()
+            second = cli.registers()
+        self.assertNotIn("\033", first)
+        self.assertIn(f"{BLUE}0x42{RESET}", second)
+        self.assertIn(f"{BLUE}0x0001{RESET}", second)  # PC changed
+        self.assertIn(f"{BLUE}1{RESET}", second)  # cycle changed
+
+    def test_display_marks_changed_bytes(self):
+        from unittest import mock
+
+        from simu8051.cli import BLUE, RESET, CLI
+        from simu8051.session import Session
+
+        session = Session.from_bytes(b"\x00")
+        item = {
+            "command": ["x", "i", "0x20", "1"],
+            "label": "x i 0x20 1",
+            "enabled": True,
+            "previous": None,
+        }
+        cli = CLI(session, [item])
+        with mock.patch("simu8051.cli.use_color", return_value=True):
+            first = cli.display_text(item)
+            session.write("iram", 0x20, 0x5A)
+            second = cli.display_text(item)
+            cli.reset_baselines()
+            third = cli.display_text(item)
+        self.assertNotIn("\033", first)
+        self.assertEqual(second.count(BLUE), 1)
+        self.assertIn(f"{BLUE}5A{RESET}", second)
+        self.assertNotIn("\033", third)
+
+    def test_colour_disabled_without_tty_or_no_color(self):
+        from unittest import mock
+
+        from simu8051 import cli
+
+        with mock.patch("sys.stdout.isatty", return_value=False):
+            self.assertFalse(cli.use_color())
+        with mock.patch("sys.stdout.isatty", return_value=True):
+            with mock.patch.dict("os.environ", {"NO_COLOR": ""}):
+                self.assertFalse(cli.use_color())
+            with mock.patch.dict("os.environ", {}, clear=True):
+                self.assertTrue(cli.use_color())
+
     def test_memory_write_errors(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],

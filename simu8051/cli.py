@@ -54,7 +54,7 @@ ALIASES = {
     "q": "quit",
     "exit": "quit",
 }
-DISPLAY_COMMANDS = ("regs", "sfr", "x", "disassemble")
+DISPLAY_COMMANDS = ("sfr", "x", "disassemble")
 SPACES = ("i", "x", "c")
 INFO_KINDS = ("break", "display")
 SFR_NAMES = Session.sfr_names
@@ -190,7 +190,7 @@ Commands
 
   Numbers   decimal or 0x/0o/0b prefix
   Spaces    i = internal RAM | x = external RAM | c = ROM
-  Display   regs | sfr [NAME] | x SPACE ADDR [N] | disassemble [ADDR] [N]
+  Display   sfr [NAME] | x SPACE ADDR [N] | disassemble [ADDR] [N]
   Output    current instruction and registers after every stop
   Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit
 """
@@ -200,7 +200,37 @@ def parse_int(text: str) -> int:
     return int(text, 0)
 
 
-def _table(headers: list[list[str]], values: list[list[str]]) -> str:
+BLUE = "\033[94m"
+RESET = "\033[0m"
+
+REG_HEADERS = [
+    ["PC", "ACC", "B", "PSW", "SP", "DPTR"],
+    [f"R{i}" for i in range(8)],
+    ["CY", "AC", "F0", "RS1", "RS0", "OV", "F1", "P"],
+    ["T0", "T1", "TMOD", "TCON", "cycle"],
+]
+
+
+def use_color() -> bool:
+    """Colour only on a terminal, and never when NO_COLOR is present."""
+    return sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+
+
+def paint(text: str, changed: bool, colour: bool | None = None) -> str:
+    """Wrap changed text in blue, leaving the width of the plain text intact."""
+    if not changed:
+        return text
+    if colour is None:
+        colour = use_color()
+    return f"{BLUE}{text}{RESET}" if colour else text
+
+
+def _table(
+    headers: list[list[str]],
+    values: list[list[str]],
+    previous: list[list[str]] | None = None,
+    colour: bool | None = None,
+) -> str:
     """Render stacked header/value strips as one box-drawing table."""
     cells = [row for pair in zip(headers, values) for row in pair]
     columns = max(len(row) for row in cells)
@@ -209,11 +239,13 @@ def _table(headers: list[list[str]], values: list[list[str]]) -> str:
         for c in range(columns)
     ]
 
-    def line(row: list[str]) -> str:
-        padded = [
-            f" {row[c] if c < len(row) else '':<{widths[c]}} "
-            for c in range(columns)
-        ]
+    def line(row: list[str], old: list[str] | None) -> str:
+        padded = []
+        for c in range(columns):
+            text = row[c] if c < len(row) else ""
+            changed = old is not None and c < len(old) and old[c] != text
+            field = paint(text, changed, colour)
+            padded.append(f" {field}{' ' * (widths[c] - len(text))} ")
         return "│" + "│".join(padded) + "│"
 
     def rule(left: str, mid: str, right: str) -> str:
@@ -221,7 +253,8 @@ def _table(headers: list[list[str]], values: list[list[str]]) -> str:
 
     lines = [rule("┌", "┬", "┐")]
     for index, (header, value) in enumerate(zip(headers, values)):
-        lines += [line(header), line(value)]
+        old = previous[index] if previous is not None and index < len(previous) else None
+        lines += [line(header, None), line(value, old)]
         lines.append(
             rule("└", "┴", "┘")
             if index == len(headers) - 1
@@ -230,17 +263,11 @@ def _table(headers: list[list[str]], values: list[list[str]]) -> str:
     return "\n".join(lines)
 
 
-def format_regs(session: Session) -> str:
+def reg_values(session: Session) -> list[list[str]]:
     psw = session.get_sfr("PSW")
     t0 = (session.get_sfr("TH0") << 8) | session.get_sfr("TL0")
     t1 = (session.get_sfr("TH1") << 8) | session.get_sfr("TL1")
-    headers = [
-        ["PC", "ACC", "B", "PSW", "SP", "DPTR"],
-        [f"R{i}" for i in range(8)],
-        ["CY", "AC", "F0", "RS1", "RS0", "OV", "F1", "P"],
-        ["T0", "T1", "TMOD", "TCON", "cycle"],
-    ]
-    values = [
+    return [
         [
             f"0x{session.pc:04X}",
             f"0x{session.get_reg('A'):02X}",
@@ -259,7 +286,24 @@ def format_regs(session: Session) -> str:
             str(session.cycle),
         ],
     ]
-    return _table(headers, values)
+
+
+def render_lines(
+    lines: list[list[str]],
+    previous: list[list[str]] | None = None,
+    colour: bool | None = None,
+    separator: str = " ",
+) -> str:
+    """Join fields into lines, colouring fields that differ from the snapshot."""
+    out = []
+    for row, fields in enumerate(lines):
+        old = previous[row] if previous is not None and row < len(previous) else None
+        parts = []
+        for column, text in enumerate(fields):
+            changed = old is not None and column < len(old) and old[column] != text
+            parts.append(paint(text, changed, colour))
+        out.append(separator.join(parts))
+    return "\n".join(out)
 
 
 def format_sfr(session: Session, name: str) -> str:
@@ -270,12 +314,16 @@ def format_sfr(session: Session, name: str) -> str:
     return f"{name}=0x{value:02X}"
 
 
-def format_mem(
+def sfr_lines(session: Session, names: list[str]) -> list[list[str]]:
+    return [[format_sfr(session, name) for name in names]]
+
+
+def mem_lines(
     session: Session,
     space: str,
     address: int,
     count: int | None = None,
-) -> str:
+) -> list[list[str]]:
     start = address & ~7
     if count is None:
         stop = start + 16
@@ -285,12 +333,29 @@ def format_mem(
     mask = 0xFFFF if digits == 4 else 0xFF
     lines = []
     for row_start in range(start, stop, 8):
-        row = [
+        row = [f"0x{row_start & mask:0{digits}X}:"]
+        row += [
             f"{_read_space(session, space, (row_start + i) & mask):02X}"
             for i in range(8)
         ]
-        lines.append(f"0x{row_start & mask:0{digits}X}: " + " ".join(row))
-    return "\n".join(lines)
+        lines.append(row)
+    return lines
+
+
+def disassembly_lines(session: Session, address: int, count: int) -> list[list[str]]:
+    return [
+        [f"{inst.address:04X}  {inst.raw.hex():<6}   {session.format(inst)}"]
+        for inst in session.disassemble(address, count)
+    ]
+
+
+def format_mem(
+    session: Session,
+    space: str,
+    address: int,
+    count: int | None = None,
+) -> str:
+    return render_lines(mem_lines(session, space, address, count))
 
 
 def _read_space(session: Session, space: str, address: int) -> int:
@@ -310,7 +375,7 @@ def parse_display(args: list[str]) -> list[str]:
         raise ValueError("usage: display COMMAND...")
     head = canonical(args[0])
     if head not in DISPLAY_COMMANDS:
-        raise ValueError("display: use regs, sfr, x or disassemble")
+        raise ValueError("display: use sfr, x or disassemble")
     return [head, *args[1:]]
 
 
@@ -319,6 +384,7 @@ class CLI:
         self.session = session
         self.displays = displays
         self.quit = False
+        self.regs_previous: list[list[str]] | None = None
 
     # ------------------------------------------------------------------
     # output
@@ -328,7 +394,15 @@ class CLI:
         return f"PC=0x{self.session.pc:04X}  {text}"
 
     def registers(self) -> str:
-        return format_regs(self.session)
+        values = reg_values(self.session)
+        text = _table(REG_HEADERS, values, self.regs_previous)
+        self.regs_previous = values
+        return text
+
+    def reset_baselines(self) -> None:
+        self.regs_previous = None
+        for item in self.displays:
+            item["previous"] = None
 
     def after_stop(self, reason) -> None:
         if reason is not None:
@@ -337,12 +411,27 @@ class CLI:
         print(self.registers())
         self.print_displays()
 
+    def display_text(self, item: dict) -> str:
+        command = item["command"]
+        head, args = command[0], command[1:]
+        if head == "sfr":
+            lines = sfr_lines(self.session, [args[0].upper()] if args else COMMON_SFRS)
+        elif head == "x":
+            lines = self.x_lines(args)
+        elif head == "disassemble":
+            lines = self.disassemble_lines(args)
+        else:
+            raise ValueError(f"unsupported display: {head}")
+        text = render_lines(lines, item.get("previous"))
+        item["previous"] = lines
+        return text
+
     def print_displays(self) -> None:
         for index, item in enumerate(self.displays, 1):
             if not item["enabled"]:
                 continue
             try:
-                text = self.run_command(" ".join(item["command"])) or ""
+                text = self.display_text(item)
             except Exception as exc:
                 text = f"<display error: {exc}>"
             text = text.rstrip("\n")
@@ -411,6 +500,7 @@ class CLI:
     def cmd_reset(self, args: list[str]) -> None:
         word = args[0].lower() if args else ""
         self.session.reset(cold=word == "c" or canonical(word) == "cold")
+        self.reset_baselines()
         print("reset")
         print(self.current_step())
         print(self.registers())
@@ -421,6 +511,7 @@ class CLI:
         if not args:
             raise ValueError("usage: load FILE")
         self.session.load(args[0])
+        self.reset_baselines()
         return f"loaded {args[0]}\n{self.current_step()}\n{self.registers()}"
 
     def cmd_break(self, args: list[str]) -> str:
@@ -458,14 +549,17 @@ class CLI:
 
     def cmd_sfr(self, args: list[str]) -> str:
         names = [args[0].upper()] if args else COMMON_SFRS
-        return " ".join(format_sfr(self.session, name) for name in names)
+        return render_lines(sfr_lines(self.session, names))
 
-    def cmd_x(self, args: list[str]) -> str:
+    def x_lines(self, args: list[str]) -> list[list[str]]:
         if len(args) < 2 or args[0].lower() not in SPACES:
             raise ValueError("usage: x i|x|c ADDR [N]")
         space, address = args[0].lower(), parse_int(args[1])
         count = parse_int(args[2]) if len(args) > 2 else None
-        return format_mem(self.session, space, address, count)
+        return mem_lines(self.session, space, address, count)
+
+    def cmd_x(self, args: list[str]) -> str:
+        return render_lines(self.x_lines(args))
 
     def cmd_w(self, args: list[str]) -> str:
         if len(args) < 3 or args[0].lower() not in SPACES:
@@ -483,13 +577,13 @@ class CLI:
             self.session.write(target, address + offset, value)
         return format_mem(self.session, space, address, len(values))
 
-    def cmd_disassemble(self, args: list[str]) -> str:
+    def disassemble_lines(self, args: list[str]) -> list[list[str]]:
         address = parse_int(args[0]) if args else self.session.pc
         count = parse_int(args[1]) if len(args) > 1 else 8
-        return "\n".join(
-            f"{inst.address:04X}  {inst.raw.hex():<6}   {self.session.format(inst)}"
-            for inst in self.session.disassemble(address, count)
-        )
+        return disassembly_lines(self.session, address, count)
+
+    def cmd_disassemble(self, args: list[str]) -> str:
+        return render_lines(self.disassemble_lines(args))
 
     def cmd_display(self, args: list[str]) -> str:
         command = parse_display(args)
@@ -497,7 +591,9 @@ class CLI:
             if item["command"] == command:
                 return f"already registered as {self.displays.index(item) + 1}"
         label = " ".join(args)
-        self.displays.append({"command": command, "label": label, "enabled": True})
+        self.displays.append(
+            {"command": command, "label": label, "enabled": True, "previous": None}
+        )
         return f"display {len(self.displays)}: {label}"
 
     def cmd_undisplay(self, args: list[str]) -> None:
@@ -583,7 +679,9 @@ def main(argv=None) -> int:
         except Exception as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-        displays.append({"command": command, "label": text, "enabled": True})
+        displays.append(
+            {"command": command, "label": text, "enabled": True, "previous": None}
+        )
 
     try:
         for path in args.plugin:

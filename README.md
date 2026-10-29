@@ -85,9 +85,9 @@ or `?` to show it again.
 | `--display COMMAND` | run a command after every stop; repeatable |
 
 `--display` takes a command string, for example `--display "x i 0x20 4"`.
-The command runs after every stop. Allowed commands are `regs`, `sfr`, `x` and
-`disassemble`. A dump always starts on an eight-byte row boundary; without
-`N` it shows two rows.
+The command runs after every stop. Allowed commands are `sfr`, `x` and
+`disassemble`; the register table is always shown. A dump always starts on an
+eight-byte row boundary; without `N` it shows two rows.
 
 Exit codes: `0` for a normal stop, `1` when execution hits a reserved
 opcode, `2` for a startup error.
@@ -105,7 +105,8 @@ Interactive mode keeps history in `~/.local/state/simu8051/history` (or
 Ctrl-L to clear the screen.
 
 After every stop the CLI prints the current instruction and the register
-table, then each display command.
+table, then each display command. Values that changed since the previous
+output are shown in blue; `reset` and `load` start a fresh baseline.
 
 ## Layout
 

@@ -21,6 +21,7 @@ class CompletionTests(unittest.TestCase):
     def test_display(self):
         self.assertEqual(completion_candidates(["display"], "s"), ["sfr"])
         self.assertEqual(completion_candidates(["display"], "d"), ["disassemble"])
+        self.assertEqual(completion_candidates(["display"], "r"), [])
         self.assertEqual(completion_candidates(["display", "x"], "i"), ["i"])
         self.assertEqual(completion_candidates(["display", "sfr"], "ac"), ["ACC"])
 
