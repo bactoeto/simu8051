@@ -239,6 +239,7 @@ def format_sfr(session: Session, name: str) -> str:
 
 
 def format_mem(session: Session, space: str, address: int, count: int) -> str:
+    count = ((count + 7) // 8) * 8
     digits = 4 if space in {"x", "c"} else 2
     mask = 0xFFFF if digits == 4 else 0xFF
     lines = []

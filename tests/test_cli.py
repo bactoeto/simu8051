@@ -193,6 +193,18 @@ class CLITests(unittest.TestCase):
         ):
             self.assertIn(expected, proc.stdout)
 
+    def test_memory_dump_rounds_to_full_rows(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="x i 0x30 1\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("0x30: 00 00 00 00 00 00 00 00", proc.stdout)
+
     def test_memory_write_errors(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],
