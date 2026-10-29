@@ -193,6 +193,18 @@ class CLITests(unittest.TestCase):
         ):
             self.assertIn(expected, proc.stdout)
 
+    def test_memory_format_always_full_rows(self):
+        from simu8051.cli import format_mem
+        from simu8051.session import Session
+
+        session = Session.from_bytes(b"\x00")
+        for count in (None, 0, 1, 9):
+            text = format_mem(session, "i", 0x31, count)
+            for line in text.splitlines():
+                self.assertEqual(len(line.split(": ", 1)[1].split()), 8)
+            self.assertTrue(text.startswith("0x30:"))
+            self.assertNotIn("0x31:", text)
+
     def test_memory_dump_aligns_full_rows(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],

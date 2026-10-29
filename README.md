@@ -87,7 +87,8 @@ or `?` to show it again.
 
 `--display` accepts the same specifications as the `display` command:
 `regs`, `reg NAME`, `sfr NAME`, `mem SPACE ADDR [N]` and
-`bit ADDR [N]`.
+`bit ADDR [N]`. A dump always starts on an eight-byte row boundary; without
+`N` it shows two rows.
 
 Exit codes: `0` for a normal stop, `1` when execution hits a reserved
 opcode, `2` for a startup error.
