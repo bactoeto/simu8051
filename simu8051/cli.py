@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import shlex
 import sys
+from dataclasses import dataclass
 
 from .cli_format import (
     COMMON_SFRS,
@@ -85,8 +86,16 @@ def parse_display(args: list[str]) -> list[str]:
     return [head, *args[1:]]
 
 
+@dataclass
+class DisplayItem:
+    command: list[str]
+    label: str
+    enabled: bool = True
+    previous: list[list[str]] | None = None
+
+
 class CLI:
-    def __init__(self, session: Session, displays: list[dict]):
+    def __init__(self, session: Session, displays: list[DisplayItem]):
         self.session = session
         self.displays = displays
         self.quit = False
@@ -108,7 +117,7 @@ class CLI:
     def reset_baselines(self) -> None:
         self.regs_previous = None
         for item in self.displays:
-            item["previous"] = None
+            item.previous = None
 
     def after_stop(self, reason) -> None:
         if reason is not None:
@@ -116,8 +125,8 @@ class CLI:
         print(self.current_step())
         print(self.registers())
 
-    def display_text(self, item: dict) -> str:
-        command = item["command"]
+    def display_text(self, item: DisplayItem) -> str:
+        command = item.command
         head, args = command[0], command[1:]
         if head == "sfr":
             lines = sfr_lines(self.session, [args[0].upper()] if args else COMMON_SFRS)
@@ -127,20 +136,20 @@ class CLI:
             lines = self.disassemble_lines(args)
         else:
             raise ValueError(f"unsupported display: {head}")
-        text = render_lines(lines, item.get("previous"))
-        item["previous"] = lines
+        text = render_lines(lines, item.previous)
+        item.previous = lines
         return text
 
     def print_displays(self) -> None:
         for index, item in enumerate(self.displays, 1):
-            if not item["enabled"]:
+            if not item.enabled:
                 continue
             try:
                 text = self.display_text(item)
             except Exception as exc:
                 text = f"<display error: {exc}>"
             text = text.rstrip("\n")
-            prefix = f"[{index}] {item['label']}:"
+            prefix = f"[{index}] {item.label}:"
             if "\n" in text:
                 print(prefix)
                 print(text)
@@ -246,7 +255,7 @@ class CLI:
             return f"pc: {pc or '(none)'}\ncycle: {cyc or '(none)'}"
         if what == "display":
             return "\n".join(
-                f"{i}: [{'on' if item['enabled'] else 'off'}] {item['label']}"
+                f"{i}: [{'on' if item.enabled else 'off'}] {item.label}"
                 for i, item in enumerate(self.displays, 1)
             )
         raise ValueError("info break | info display")
@@ -295,12 +304,10 @@ class CLI:
     def cmd_display(self, args: list[str]) -> str:
         command = parse_display(args)
         for item in self.displays:
-            if item["command"] == command:
+            if item.command == command:
                 return f"already registered as {self.displays.index(item) + 1}"
         label = " ".join(args)
-        self.displays.append(
-            {"command": command, "label": label, "enabled": True, "previous": None}
-        )
+        self.displays.append(DisplayItem(command, label))
         return f"display {len(self.displays)}: {label}"
 
     def cmd_undisplay(self, args: list[str]) -> None:
@@ -318,7 +325,7 @@ class CLI:
         index = parse_int(args[0])
         if not 1 <= index <= len(self.displays):
             raise ValueError("bad display index")
-        self.displays[index - 1]["enabled"] = enabled
+        self.displays[index - 1].enabled = enabled
         return None
 
     def cmd_enable(self, args: list[str]) -> None:
@@ -381,16 +388,14 @@ def main(argv=None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    displays: list[dict] = []
+    displays: list[DisplayItem] = []
     for text in args.display:
         try:
             command = parse_display(shlex.split(text))
         except Exception as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-        displays.append(
-            {"command": command, "label": text, "enabled": True, "previous": None}
-        )
+        displays.append(DisplayItem(command, text))
 
     try:
         for path in args.plugin:

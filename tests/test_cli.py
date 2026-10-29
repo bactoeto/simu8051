@@ -307,17 +307,12 @@ class CLITests(unittest.TestCase):
     def test_display_marks_changed_bytes(self):
         from unittest import mock
 
-        from simu8051.cli import CLI
+        from simu8051.cli import CLI, DisplayItem
         from simu8051.cli_format import RED, RESET
         from simu8051.session import Session
 
         session = Session.from_bytes(b"\x00")
-        item = {
-            "command": ["x", "i", "0x20", "1"],
-            "label": "x i 0x20 1",
-            "enabled": True,
-            "previous": None,
-        }
+        item = DisplayItem(["x", "i", "0x20", "1"], "x i 0x20 1")
         cli = CLI(session, [item])
         with mock.patch("simu8051.cli_format.use_color", return_value=True):
             first = cli.display_text(item)
