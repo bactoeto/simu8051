@@ -66,7 +66,6 @@ display, dp ...         add a persistent display item
 undisplay, und N        remove a display item
 enable, on N            enable a display item
 disable, off N          disable a display item
-trace, t on|off         instruction trace
 help, h, ?              show commands
 quit, q, exit
 ```
@@ -83,12 +82,11 @@ or `?` to show it again.
 | `--break cycle:N` | set a cycle breakpoint; repeatable |
 | `--max-cycles N` | cycle limit for `--run` / `--batch` |
 | `--run`, `--batch` | run without the REPL |
-| `--trace` | print each executed instruction |
 | `--display SPEC` | add a persistent display; repeatable |
 | `--no-default-display` | do not print `regs` after stops |
 
 `--display` accepts the same specifications as the `display` command:
-`regs`, `pc`, `reg NAME`, `sfr NAME`, `mem SPACE ADDR [N]` and
+`regs`, `reg NAME`, `sfr NAME`, `mem SPACE ADDR [N]` and
 `bit ADDR [N]`.
 
 Exit codes: `0` for a normal stop, `1` when execution hits a reserved
@@ -106,8 +104,9 @@ Interactive mode keeps history in `~/.local/state/simu8051/history` (or
 `$XDG_STATE_HOME/simu8051/history`), completes commands with Tab, and supports
 Ctrl-L to clear the screen.
 
-The default persistent display is `regs`, printed after every execution
-stop. Use `--no-default-display` to disable it.
+After every stop the CLI prints the current instruction at PC, then the
+persistent displays. The default display is `regs`; use
+`--no-default-display` to disable it.
 
 ## Layout
 

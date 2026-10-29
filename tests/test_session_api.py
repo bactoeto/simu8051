@@ -135,15 +135,6 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(second.cycles, 1)
         self.assertEqual(session.pc, 0x30)
 
-    def test_trace_emits_once_per_instruction(self):
-        lines: list[str] = []
-        session = Session.from_bytes(LJMP_0030)
-        session.set_trace(lines.append)
-        session.run(max_cycles=1)
-        session.step()
-        self.assertEqual(len(lines), 1)
-        self.assertIn("LJMP", lines[0])
-
     def test_zero_limits(self):
         session = Session.from_bytes(NOP)
         result = session.run(max_cycles=0)

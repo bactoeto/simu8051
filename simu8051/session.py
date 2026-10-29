@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Literal
 
 from .core import Core, Event, Trap
 from .hex import (
@@ -111,7 +111,6 @@ class Session:
         self._plugins: list[Plugin] = []
         self._pc_breaks: set[int] = set()
         self._cycle_breaks: set[int] = set()
-        self._trace: Callable[[str], None] | None = None
         self._pending: StopReason | None = None
         self._last_reason: StopReason | None = None
         self._skip_pc_break: int | None = None
@@ -332,10 +331,6 @@ class Session:
         self._plugins.append(plugin)
         return plugin
 
-    def set_trace(self, callback: Callable[[str], None] | None) -> None:
-        """Emit one line per instruction to callback, or disable with None."""
-        self._trace = callback
-
     # ------------------------------------------------------------------
     # execution
     # ------------------------------------------------------------------
@@ -369,9 +364,6 @@ class Session:
         was_idle = self._core.idle
         was_halted = self._core.halted
         was_vector = not was_op and not at_boundary
-        if self._trace is not None and at_boundary and not was_idle:
-            self._trace(f"{self._core.cycle:8d} {start_pc:04X} {self.format(instruction)}")
-
         try:
             events = self._core.tick_cycle()
         except Trap as exc:
@@ -510,8 +502,6 @@ class Session:
 
         instruction = decode_at(self._program, start_pc)
         text = self.format(instruction)
-        if self._trace is not None and self._core._at_boundary() and not self._core.idle:
-            self._trace(f"{self._core.cycle:8d} {start_pc:04X} {text}")
 
         completed = False
         reason: StopReason | None = None

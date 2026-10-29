@@ -141,6 +141,18 @@ class CLITests(unittest.TestCase):
         self.assertIn("0003  ff", proc.stdout)
         self.assertIn("NULL", proc.stdout)
 
+    def test_current_step_after_execution(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="step\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("PC=0x0030  MOV", proc.stdout)
+
     def test_memory_and_control_commands(self):
         script = (
             "x i 0 0x10\n"
@@ -156,7 +168,6 @@ class CLITests(unittest.TestCase):
             "disassemble 0x0030 1\n"
             "reset cold\n"
             "load tests/fixtures/sub2.hex\n"
-            "trace on\n"
             "step\n"
             "quit\n"
         )
@@ -178,7 +189,7 @@ class CLITests(unittest.TestCase):
             "0x20: 5A",
             "0x0000: 12 34",
             "0x0030: 00",
-            "0030  00", "reset", "loaded", "trace on",
+            "0030  00", "reset", "loaded",
         ):
             self.assertIn(expected, proc.stdout)
 

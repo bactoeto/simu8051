@@ -26,7 +26,7 @@ COMMANDS = (
     "run", "step", "cycle", "continue", "break", "delete",
     "regs", "sfr", "x", "w", "disassemble", "reset", "load",
     "display", "undisplay", "enable", "disable", "info",
-    "trace", "help", "quit",
+    "help", "quit",
 )
 ALIASES = {
     "r": "run",
@@ -47,7 +47,6 @@ ALIASES = {
     "en": "enable",
     "on": "enable",
     "off": "disable",
-    "t": "trace",
     "h": "help",
     "?": "help",
     "q": "quit",
@@ -61,7 +60,7 @@ def canonical(word: str) -> str:
 REG_NAMES = Session.register_names
 SFR_NAMES = Session.sfr_names
 SPACES = ("i", "x", "c")
-DISPLAY_KINDS = ("regs", "pc", "reg", "sfr", "mem", "bit")
+DISPLAY_KINDS = ("regs", "reg", "sfr", "mem", "bit")
 INFO_KINDS = ("break", "display")
 
 
@@ -105,8 +104,6 @@ def completion_candidates(tokens: list[str], text: str) -> list[str]:
         return [name for name in ("cycle", "cy") if name.startswith(text.lower())]
     if head == "info" and len(tokens) == 1:
         return [name for name in (*INFO_KINDS, "b", "dp") if name.startswith(text.lower())]
-    if head == "trace" and len(tokens) == 1:
-        return [name for name in ("on", "off") if name.startswith(text.lower())]
     if head == "reset" and len(tokens) == 1:
         return [name for name in ("cold", "c") if name.startswith(text.lower())]
     return []
@@ -164,7 +161,7 @@ def prompt_text() -> str:
 
 
 HELP_TEXT = """\
-Commands\n\n  Command      Aliases  Arguments            Description\n  ------------------------------------------------------\n\n  Execution\n  run          r        [N]                  run N instructions; omit N to run until a stop\n  step         s        [N]                  execute N instructions (default 1)\n  cycle        cy       [N]                  execute N machine cycles (default 1)\n  continue     c                             resume after a stop\n  reset        res      [cold]               reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR                 stop at PC ADDR, e.g. 0x0030\n  break cycle           N                    stop at machine cycle N\n  delete       del                           clear all breakpoints\n  info         i        break|display        list breakpoints or displays\n\n  Inspection\n  regs         reg                           PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]               all common SFRs, or one by name\n  x                     SPACE ADDR [N]       dump N bytes, 8 per line: i, x, c\n  w                     SPACE ADDR VALUE...  write bytes: i, x, c (c patches ROM)\n  disassemble  d        [ADDR] [N]           disassemble N instructions (default 8)\n  display      dp       SPEC                 add a persistent display\n  undisplay    und      N                    remove display item N\n  enable       on       N                    turn display item N on\n  disable      off      N                    turn display item N off\n\n  Other\n  load         l        FILE                 load another HEX file\n  trace        t        on|off               print each executed instruction\n  help         h, ?                          show this text\n  quit         q, exit                       leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    i = internal RAM | x = external RAM | c = ROM\n  Display   regs | pc | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
+Commands\n\n  Command      Aliases  Arguments            Description\n  ------------------------------------------------------\n\n  Execution\n  run          r        [N]                  run N instructions; omit N to run until a stop\n  step         s        [N]                  execute N instructions (default 1)\n  cycle        cy       [N]                  execute N machine cycles (default 1)\n  continue     c                             resume after a stop\n  reset        res      [cold]               reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR                 stop at PC ADDR, e.g. 0x0030\n  break cycle           N                    stop at machine cycle N\n  delete       del                           clear all breakpoints\n  info         i        break|display        list breakpoints or displays\n\n  Inspection\n  regs         reg                           PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]               all common SFRs, or one by name\n  x                     SPACE ADDR [N]       dump N bytes, 8 per line: i, x, c\n  w                     SPACE ADDR VALUE...  write bytes: i, x, c (c patches ROM)\n  disassemble  d        [ADDR] [N]           disassemble N instructions (default 8)\n  display      dp       SPEC                 add a persistent display\n  undisplay    und      N                    remove display item N\n  enable       on       N                    turn display item N on\n  disable      off      N                    turn display item N off\n\n  Other\n  load         l        FILE                 load another HEX file\n  help         h, ?                          show this text\n  quit         q, exit                       leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    i = internal RAM | x = external RAM | c = ROM\n  Display   regs | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Step      current instruction printed after every stop\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
 
 
 def parse_int(text: str) -> int:
@@ -278,9 +275,6 @@ def display_value(session: Session, item: tuple) -> str:
         return format_mem(session, item[1], item[2], item[3])
     if kind == "bit":
         return format_mem(session, "bit", item[1], item[2])
-    if kind == "pc":
-        text = session.format(session.decode())
-        return f"PC=0x{session.pc:04X}  {text}".rstrip()
     return ""
 
 
@@ -302,12 +296,10 @@ def print_displays(session: Session, displays: list[dict]) -> None:
 
 def parse_display(args: list[str]) -> tuple:
     if not args:
-        raise ValueError("usage: display regs | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N] | pc")
+        raise ValueError("usage: display regs | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]")
     kind = args[0].lower()
     if kind == "regs" and len(args) == 1:
         return ("regs",)
-    if kind == "pc" and len(args) == 1:
-        return ("pc",)
     if kind == "reg" and len(args) == 2:
         return ("reg", args[1].upper())
     if kind == "sfr" and len(args) == 2:
@@ -338,11 +330,15 @@ class CLI:
         self.session = session
         self.displays = displays
         self.quit = False
-        self.trace_on = False
+
+    def current_step(self) -> str:
+        text = self.session.format(self.session.decode())
+        return f"PC=0x{self.session.pc:04X}  {text}"
 
     def stop_display(self, result) -> None:
         if result.reason is not None:
             print(result.reason)
+        print(self.current_step())
         print_displays(self.session, self.displays)
 
     def cmd_help(self) -> None:
@@ -466,6 +462,7 @@ class CLI:
         word = args[0].lower() if args else ""
         self.session.reset(cold=word == "c" or canonical(word) == "cold")
         print("reset")
+        print(self.current_step())
         print_displays(self.session, self.displays)
 
     def cmd_load(self, args: list[str]) -> None:
@@ -473,6 +470,7 @@ class CLI:
             raise ValueError("usage: load FILE")
         self.session.load(args[0])
         print(f"loaded {args[0]}")
+        print(self.current_step())
 
     def dispatch(self, line: str) -> None:
         parts = shlex.split(line)
@@ -521,10 +519,6 @@ class CLI:
             self.cmd_toggle(args, True)
         elif cmd == "disable":
             self.cmd_toggle(args, False)
-        elif cmd == "trace":
-            self.trace_on = bool(args and args[0].lower() in {"on", "1", "true"})
-            self.session.set_trace(print if self.trace_on else None)
-            print("trace", "on" if self.trace_on else "off")
         else:
             print(f"unknown command: {cmd}")
 
@@ -556,7 +550,6 @@ def main(argv=None) -> int:
     ap.add_argument("--max-cycles", type=int)
     ap.add_argument("--run", action="store_true", help="run without REPL")
     ap.add_argument("--batch", action="store_true", help="alias for --run")
-    ap.add_argument("--trace", action="store_true")
     ap.add_argument("--display", action="append", default=[])
     ap.add_argument("--no-default-display", action="store_true")
     args = ap.parse_args(argv)
@@ -566,8 +559,6 @@ def main(argv=None) -> int:
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-
-    session.set_trace(print if args.trace else None)
 
     try:
         for spec in args.breaks:
@@ -598,13 +589,13 @@ def main(argv=None) -> int:
         return 2
 
     cli = CLI(session, displays)
-    cli.trace_on = args.trace
     if args.run or args.batch:
         result = session.run(max_cycles=args.max_cycles)
         cli.stop_display(result)
         return 1 if result.reason.kind == "trap" else 0
 
     print(f"loaded {args.hexfile}")
+    print(cli.current_step())
     return cli.loop()
 
 

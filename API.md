@@ -204,19 +204,6 @@ A file plugin uses module-level functions; a programmatic plugin subclasses
 
 Plugin writes take effect on the next machine cycle.
 
-## Tracing
-
-```python
-session.set_trace(print)
-session.set_trace(None)
-```
-
-Prints one line per instruction:
-
-```text
-    1234 0030 MOV     A,#0x00
-```
-
 ## Errors
 
 | Exception | Raised by |
