@@ -24,62 +24,40 @@ python3 -m simu8051 firmware.hex --batch --max-cycles 100000
 python3 -m simu8051 firmware.hex --plugin stimulus.py
 ```
 
-`cli.py` is only a reference front end. `Core`, `Session`, `load_hex` and the
-plugin API can be used directly, so the CLI can be replaced without touching
-the simulator.
+`cli.py` is only a reference front end. Every front end should use
+`simu8051.session`; see [API.md](API.md). `core.py`, `hex.py`, `plugin.py`
+and the generated tables are internal.
 
 ### Library
 
 ```python
-from simu8051 import Core, Session, load_hex
+from simu8051.session import Session
 
-image = load_hex("firmware.hex")
-core = Core()
-session = Session(core=core, image=image)
+session = Session.open("firmware.hex")
+session.break_at(0x0030)
 result = session.run(max_cycles=100_000)
-print(core.pc, core.get_reg("A"), result.reason)
+print(session.pc, session.get_reg("A"), result.reason)
 ```
 
-`simu8051/__init__.py` lists the supported exports. Names starting with `_`
-are internal and may change.
+[API.md](API.md) is the authoritative reference: construction, execution,
+limits, breakpoints, memory spaces, disassembly, plugins and errors.
 
-`Core` — CPU and memory:
+Quick reference:
 
-| Member | Meaning |
+| Group | Members |
 |---|---|
-| `execute_instruction()` | execute one instruction; returns `pc`, `next_pc`, `cycles`, `halted` |
-| `tick_cycle()` | advance one machine cycle; returns events |
-| `reset(cold=False)` | reset; `cold=True` clears IRAM and XDATA |
-| `read_direct(addr)` / `write_direct(addr, value)` | direct space, `0x00-0xFF` |
-| `read_indirect(addr)` / `write_indirect(addr, value)` | `@Ri` space |
-| `read_latch(addr)` / `read_bit(bit)` | SFR latches and bit space |
-| `read_xdata(addr)` / `write_xdata(addr, value)` | external data memory |
-| `read_code(addr)` | program memory |
-| `get_reg(name)` / `set_reg(name, value)` | `A B PSW SP DPL DPH DPTR PC R0-R7` |
-| `get_sfr(name)` / `set_sfr(name, value)` | SFR by name or address |
-| `drive_pin(port, bit, value)`, `drive_port(port, mask, value)`, `release_pin(port, mask)` | external pin levels |
+| Construction | `Session.open`, `Session.from_bytes`, `load`, `reset` |
+| State | `pc`, `cycle`, `halted`, `idle`, `last_stop`, `register_names`, `sfr_names` |
+| Execution | `step`, `step_cycle`, `run` |
+| Breakpoints | `break_at`, `break_at_cycle`, `clear_breakpoints`, `breakpoints_pc`, `breakpoints_cycle` |
+| Memory | `read`, `write` |
+| Registers | `get_reg` / `set_reg`, `get_sfr` / `set_sfr` |
+| Pins | `drive_pin`, `drive_port`, `release_pin` |
+| Program | `decode`, `disassemble`, `format` |
+| Plugins | `add_plugin`, `load_plugin`, `set_trace` |
 
-`Session` — stepping, breakpoints and plugins:
-
-| Member | Meaning |
-|---|---|
-| `step()` / `step_cycle()` | run one instruction / one machine cycle |
-| `run(max_cycles=None, max_instructions=None)` | run until a stop |
-| `break_at(addr)` / `break_at_cycle(n)` / `clear_breakpoints()` | breakpoints |
-| `stop(reason)` | request the run to stop |
-| `reset(cold=False)` | reset the session |
-
-`step()` and `run()` return `StepResult` with `pc`, `next_pc`, `cycles`,
-`reason`, `instruction`, `halted` and `idle`.
-
-Intel HEX:
-
-| Function | Meaning |
-|---|---|
-| `load_hex(path)` | parse a HEX file into an `Image` |
-| `decode_at(image, pc)` | decode one instruction |
-| `disassemble(image, start=0, end=0x10000)` | decode a range |
-| `format_instruction(inst)` | text form |
+`step()` returns `StepResult`; `run()` returns `RunResult`. Both use
+`StopReason.kind` for programmatic decisions.
 
 See [Plugins](#plugins) for the plugin API.
 
@@ -130,6 +108,7 @@ Only `simu8051/` is needed at runtime; the other directories are development
 material.
 
 ```text
+API.md               public API reference and contract
 simu8051/            simulator package
   cli.py             reference CLI (optional front end)
   __main__.py        entry point for `python3 -m simu8051`
@@ -146,7 +125,7 @@ data/
 
 tools/               data extraction, build, validation, table generation
 tools/archive/       ucsim comparison scripts
-tests/               unit and CLI tests
+tests/               unit, CLI and public-API contract tests
 tests/fixtures/      as31 HEX fixtures
 examples/            plugin examples
 docs/                source documents (local, not tracked)
@@ -195,7 +174,11 @@ def on_cycle(ctx):
         ctx.write("iram", 0x20, 0x5A)
 ```
 
-Do not write a class, do not inherit from `Plugin`, do not use `self`.
+File plugins use module-level functions: do not write a class or use `self`.
+From Python, load a plugin with `session.load_plugin("my_plugin.py")`.
+Programmatic plugins may subclass `Plugin` and be registered with
+`session.add_plugin()`. For editor support, annotate `ctx` as
+`from simu8051.session import PluginContext`.
 
 ### Context API
 

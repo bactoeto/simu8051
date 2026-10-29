@@ -8,7 +8,7 @@ A plugin is a file with module-level functions. Available hooks:
 Run:
     python3 -m simu8051 firmware.hex --plugin examples/plugin_template.py
 """
-from simu8051.plugin import PluginContext
+from simu8051.session import PluginContext
 
 
 def on_cycle(ctx: PluginContext) -> None:

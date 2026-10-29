@@ -58,6 +58,19 @@ class ConstructionTests(unittest.TestCase):
         session.reset()
         self.assertEqual(session.pc, 0x30)
 
+    def test_cold_and_warm_reset(self):
+        session = Session.from_bytes(NOP)
+        session.write("iram", 0x20, 0x5A)
+        session.write("xdata", 0x10, 0xA5)
+
+        session.reset(cold=False)
+        self.assertEqual(session.read("iram", 0x20), 0x5A)
+        self.assertEqual(session.read("xdata", 0x10), 0xA5)
+
+        session.reset(cold=True)
+        self.assertEqual(session.read("iram", 0x20), 0x00)
+        self.assertEqual(session.read("xdata", 0x10), 0x00)
+
     def test_malformed_hex_raises(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.hex"

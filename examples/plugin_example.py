@@ -8,7 +8,7 @@
 2. 第 30 个机器周期释放 INT0；
 3. 第 100 个机器周期把内部 RAM 0x20 写成 0x5A，并打印当前 PC。
 """
-from simu8051.plugin import PluginContext
+from simu8051.session import PluginContext
 
 
 def on_cycle(ctx: PluginContext) -> None:
