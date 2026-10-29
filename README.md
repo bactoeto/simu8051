@@ -53,7 +53,7 @@ Quick reference:
 | Memory | `read`, `write` |
 | Registers | `get_reg` / `set_reg`, `get_sfr` / `set_sfr` |
 | Pins | `drive_pin`, `drive_port`, `release_pin` |
-| Program | `decode`, `disassemble`, `format` |
+| Program | `decode`, `disassemble`, `format`, `is_loaded` |
 | Plugins | `add_plugin`, `load_plugin`, `set_trace` |
 
 `step()` returns `StepResult`; `run()` returns `RunResult`. Both use
@@ -114,6 +114,10 @@ opcode, `2` for a startup error.
 Memory is addressed as `i` (internal RAM, `0x00-0x7F`), `x` (external RAM,
 `0x0000-0xFFFF`) and `c` (program memory, `0x0000-0xFFFF`). `w c` patches
 program memory for debugging; real ROM cannot be written.
+
+Unwritten code reads as erased `0xFF`, matching hardware. `x c` shows those
+bytes, while `d` prints `NULL` for instructions whose bytes were not present
+in the HEX file. `session.is_loaded(address)` exposes the same distinction.
 
 Interactive mode keeps history in `~/.local/state/simu8051/history` (or
 `$XDG_STATE_HOME/simu8051/history`), completes commands with Tab, and supports

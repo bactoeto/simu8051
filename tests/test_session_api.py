@@ -219,6 +219,36 @@ class InspectionTests(unittest.TestCase):
         self.assertEqual(session.read("sfr", 0x90), 0x0F)
         self.assertEqual(session.read("direct", 0x30), 0x11)
 
+    def test_unwritten_byte_is_not_loaded_but_reads_ff(self):
+        session = Session.from_bytes(bytes([0xFF, 0x00]))
+        self.assertTrue(session.is_loaded(0))
+        self.assertTrue(session.is_loaded(1))
+        self.assertFalse(session.is_loaded(2))
+        self.assertEqual(session.read("code", 0), 0xFF)
+        self.assertEqual(session.read("code", 2), 0xFF)
+        self.assertEqual(session.format(session.decode(2)), "NULL")
+
+    def test_hex_coverage_marks_only_file_data(self):
+        session = Session.open(FIXTURE)
+        self.assertTrue(session.is_loaded(0))
+        self.assertTrue(session.is_loaded(0x30))
+        self.assertFalse(session.is_loaded(3))
+        self.assertEqual(session.format(session.decode(3)), "NULL")
+
+    def test_code_write_marks_coverage(self):
+        session = Session.from_bytes(bytes([0x00]))
+        self.assertFalse(session.is_loaded(1))
+        session.write("code", 1, 0xFF)
+        self.assertTrue(session.is_loaded(1))
+        self.assertEqual(session.format(session.decode(1)), "MOV R7,A")
+
+    def test_partial_instruction_is_null(self):
+        session = Session.from_bytes(bytes([0x02]))
+        self.assertEqual(session.format(session.decode(0)), "NULL")
+        session.write("code", 1, 0x00)
+        session.write("code", 2, 0x30)
+        self.assertIn("LJMP", session.format(session.decode(0)))
+
     def test_unknown_space(self):
         session = Session.from_bytes(NOP)
         with self.assertRaises(ValueError):

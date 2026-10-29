@@ -14,7 +14,15 @@ from pathlib import Path
 from typing import Callable, Literal
 
 from .core import Core, Event, Trap
-from .hex import HexError, Image, Instruction, decode_at, format_instruction, load_hex
+from .hex import (
+    CODE_SIZE,
+    HexError,
+    Image,
+    Instruction,
+    decode_at,
+    format_instruction,
+    load_hex,
+)
 from .mem_table import SFR
 from .plugin import Plugin, PluginContext, load_plugin as _load_plugin
 
@@ -89,11 +97,17 @@ class Session:
     register_names: tuple[str, ...] = _REGISTER_NAMES
     sfr_names: tuple[str, ...] = _SFR_NAMES
 
-    def __init__(self, core: Core, entry: int = 0) -> None:
+    def __init__(
+        self,
+        core: Core,
+        entry: int = 0,
+        loaded: bytearray | None = None,
+    ) -> None:
         self._core = core
         self._entry = entry & 0xFFFF
         # Decoder view over the CPU's program memory; no second copy.
         self._program = Image(code=core.code)
+        self._loaded = loaded if loaded is not None else bytearray(CODE_SIZE // 8)
         self._plugins: list[Plugin] = []
         self._pc_breaks: set[int] = set()
         self._cycle_breaks: set[int] = set()
@@ -112,7 +126,7 @@ class Session:
         image = load_hex(path)
         core = Core()
         core.load_image(image)
-        session = cls(core, entry=image.start or 0)
+        session = cls(core, entry=image.start or 0, loaded=image.loaded)
         session.reset(cold=cold)
         return session
 
@@ -124,7 +138,11 @@ class Session:
         cold: bool = True,
     ) -> "Session":
         """Build a session from raw program bytes loaded at address 0."""
-        session = cls(Core(bytes(code)), entry=entry)
+        core = Core(bytes(code))
+        loaded = bytearray(CODE_SIZE // 8)
+        for address in range(min(len(code), CODE_SIZE)):
+            loaded[address >> 3] |= 1 << (address & 7)
+        session = cls(core, entry=entry, loaded=loaded)
         session.reset(cold=cold)
         return session
 
@@ -132,6 +150,7 @@ class Session:
         """Replace the program. A malformed file leaves the session unchanged."""
         image = load_hex(path)
         self._core.load_image(image)
+        self._loaded = image.loaded
         self._entry = (image.start or 0) & 0xFFFF
         self.reset(cold=cold)
 
@@ -221,6 +240,8 @@ class Session:
         key = space.lower()
         if key == "code":
             self._core.write_code(address, value)
+            bit = address & 0xFFFF
+            self._loaded[bit >> 3] |= 1 << (bit & 7)
         elif key == "iram":
             self._core.write_indirect(address, value)
         elif key in {"sfr", "direct"}:
@@ -263,6 +284,15 @@ class Session:
     # ------------------------------------------------------------------
     # program inspection
     # ------------------------------------------------------------------
+    def is_loaded(self, address: int) -> bool:
+        """True when the HEX file (or a code write) supplied this address.
+
+        This is loader coverage, not hardware state. An unwritten address and
+        a byte explicitly loaded as 0xFF both read as 0xFF.
+        """
+        bit = address & 0xFFFF
+        return bool(self._loaded[bit >> 3] & (1 << (bit & 7)))
+
     def decode(self, pc: int | None = None) -> Instruction:
         """Decode the instruction at pc, defaulting to the current PC."""
         return decode_at(self._program, self._core.pc if pc is None else pc)
@@ -280,7 +310,12 @@ class Session:
         return result
 
     def format(self, instruction: Instruction) -> str:
-        """Render a decoded instruction as text."""
+        """Render an instruction, or ``"NULL"`` if its bytes were not loaded."""
+        if not all(
+            self.is_loaded(instruction.address + offset)
+            for offset in range(instruction.size)
+        ):
+            return "NULL"
         return format_instruction(instruction)
 
     # ------------------------------------------------------------------
@@ -335,7 +370,7 @@ class Session:
         was_halted = self._core.halted
         was_vector = not was_op and not at_boundary
         if self._trace is not None and at_boundary and not was_idle:
-            self._trace(f"{self._core.cycle:8d} {start_pc:04X} {format_instruction(instruction)}")
+            self._trace(f"{self._core.cycle:8d} {start_pc:04X} {self.format(instruction)}")
 
         try:
             events = self._core.tick_cycle()
@@ -355,7 +390,7 @@ class Session:
         completed = self._retired(was_op, at_boundary, was_idle, was_halted, was_vector)
         reason = self._pending or self._cycle_break()
         if completed:
-            self._dispatch_instruction(format_instruction(instruction))
+            self._dispatch_instruction(self.format(instruction))
             if reason is None and self._pending is not None:
                 reason = self._pending
         if reason is not None:
@@ -474,7 +509,7 @@ class Session:
             )
 
         instruction = decode_at(self._program, start_pc)
-        text = format_instruction(instruction)
+        text = self.format(instruction)
         if self._trace is not None and self._core._at_boundary() and not self._core.idle:
             self._trace(f"{self._core.cycle:8d} {start_pc:04X} {text}")
 

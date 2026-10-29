@@ -127,6 +127,20 @@ class CLITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("[2] mem i", proc.stdout)
 
+    def test_unwritten_code_shows_null(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="x c 3 2\nd 3 2\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("0x0003: FF FF", proc.stdout)
+        self.assertIn("0003  ff", proc.stdout)
+        self.assertIn("NULL", proc.stdout)
+
     def test_memory_and_control_commands(self):
         script = (
             "x i 0 0x10\n"

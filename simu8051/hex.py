@@ -22,12 +22,16 @@ class HexError(Exception):
 class Image:
     code: bytearray = field(default_factory=lambda: bytearray([0xFF]) * CODE_SIZE)
     start: Optional[int] = None
+    loaded: bytearray = field(default_factory=lambda: bytearray(CODE_SIZE // 8))
 
     def write(self, address: int, data: bytes) -> None:
         end = address + len(data)
         if address < 0 or end > CODE_SIZE:
             raise HexError(f"data range 0x{address:04X}-0x{end - 1:04X} outside 64K")
         self.code[address:end] = data
+        for offset in range(len(data)):
+            bit = address + offset
+            self.loaded[bit >> 3] |= 1 << (bit & 7)
 
 
 def _hex_byte(text: str, lineno: int) -> int:

@@ -172,7 +172,7 @@ session.write("iram", 0x20, 0x5A)
 
 | Space | Range | Meaning |
 |---|---|---|
-| `code` | `0x0000-0xFFFF` | program memory |
+| `code` | `0x0000-0xFFFF` | program memory; unwritten bytes read `0xFF` |
 | `iram` | `0x00-0x7F` | internal RAM (`@Ri` view) |
 | `sfr` | `0x80-0xFF` | SFR latch, no side effects on read |
 | `direct` | `0x00-0xFF` | direct address; ports return pin level |
@@ -209,10 +209,24 @@ Pin changes become visible on the next machine cycle.
 |---|---|
 | `session.decode(pc=None)` | decode one instruction |
 | `session.disassemble(start=None, count=8)` | decode `count` instructions |
-| `session.format(instruction)` | render an instruction as text |
+| `session.format(instruction)` | render an instruction, or `NULL` |
+| `session.is_loaded(address)` | address came from the HEX file or a code write |
 
 Program memory is the CPU's `code` space; Session does not keep a second
 copy. A write to `code` therefore changes both execution and disassembly.
+
+`is_loaded()` is loader coverage, not hardware state. On real hardware an
+erased cell and a cell programmed to `0xFF` are indistinguishable. Session
+tracks which addresses the HEX file supplied (and which were patched through
+`write("code", ...)`):
+
+- an unwritten address reads as `0xFF`;
+- a byte explicitly loaded as `0xFF` also reads as `0xFF`;
+- `is_loaded(address)` is `False` only in the first case.
+
+`format()` returns `NULL` when any byte of the instruction was never loaded.
+This is a debugger annotation: the CPU still executes the cell as `0xFF`
+(`MOV R7,A`).
 
 `decode()` and `disassemble()` always work. A session always has program
 memory; an empty program is filled with `0xFF`.

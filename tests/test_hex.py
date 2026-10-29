@@ -17,6 +17,12 @@ class HexTests(unittest.TestCase):
         self.assertEqual(inst.form, "LJMP_addr16")
         self.assertEqual(inst.size, 3)
 
+    def test_loaded_coverage(self):
+        img = hx.Image()
+        img.write(0x10, b"\xff")
+        self.assertTrue(img.loaded[0x10 >> 3] & (1 << (0x10 & 7)))
+        self.assertFalse(img.loaded[0x11 >> 3] & (1 << (0x11 & 7)))
+
     def test_reserved_opcode(self):
         img = hx.Image()
         img.code[0] = 0xA5
