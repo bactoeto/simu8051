@@ -180,6 +180,12 @@ class TimersInterrupts(unittest.TestCase):
         self.assertEqual(c.pc, 0x0003)
         self.assertEqual(c._active_prio, [0])
 
+    def test_short_program_fills_rest_with_ff(self):
+        c = Core(bytes([0x00]))
+        self.assertEqual(c.read_code(0), 0x00)
+        self.assertEqual(c.read_code(1), 0xFF)
+        self.assertEqual(c.read_code(0xFFFF), 0xFF)
+
 
 if __name__ == "__main__":
     unittest.main()

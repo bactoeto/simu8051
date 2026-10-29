@@ -68,7 +68,8 @@ class Core:
         self._timer_pending = [False, False]
         self._last_event = None
         if code is not None:
-            self.code[:] = bytes(code)[:CODE_SIZE]
+            data = bytes(code)[:CODE_SIZE]
+            self.code[: len(data)] = data
         self.reset(cold=True)
 
     # ------------------------------------------------------------------
