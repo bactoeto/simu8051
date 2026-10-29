@@ -408,6 +408,22 @@ class CLITests(unittest.TestCase):
             with mock.patch.dict("os.environ", {}, clear=True):
                 self.assertTrue(cli_format.use_color())
 
+    def test_write_marks_changed_bytes(self):
+        from unittest import mock
+
+        from simu8051.cli import CLI
+        from simu8051.cli_format import RED, RESET
+        from simu8051.session import Session
+
+        session = Session.from_bytes(b"\x00")
+        cli = CLI(session, [])
+        with mock.patch("simu8051.cli_format.use_color", return_value=True):
+            same = cli.cmd_w(["i", "0x20", "0x00"])
+            changed = cli.cmd_w(["i", "0x20", "0x5A"])
+        self.assertNotIn("\033", same)
+        self.assertEqual(changed.count(RED), 1)
+        self.assertIn(f"{RED}5A{RESET}", changed)
+
     def test_memory_write_errors(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],

@@ -170,8 +170,9 @@ def format_mem(
     space: str,
     address: int,
     count: int | None = None,
+    previous: list[list[str]] | None = None,
 ) -> str:
-    return render_lines(mem_lines(session, space, address, count))
+    return render_lines(mem_lines(session, space, address, count), previous)
 
 
 def _read_space(session: Session, space: str, address: int) -> int:

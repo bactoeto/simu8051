@@ -350,9 +350,10 @@ class CLI:
         if space == "i" and address + len(values) > 0x80:
             raise ValueError("internal RAM is 0x00-0x7F")
         target = {"i": "iram", "x": "xdata", "c": "code"}[space]
+        before = mem_lines(self.session, space, address, len(values))
         for offset, value in enumerate(values):
             self.session.write(target, address + offset, value)
-        return format_mem(self.session, space, address, len(values))
+        return format_mem(self.session, space, address, len(values), before)
 
     def disassemble_lines(self, args: list[str]) -> list[list[str]]:
         count = parse_int(args[0]) if args else 8
