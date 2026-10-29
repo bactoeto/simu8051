@@ -250,6 +250,7 @@ def format_instruction(inst: Instruction) -> str:
     text = _format_instruction(inst)
     if inst.reserved:
         return text
+    text = text.replace(", ", ",").replace(",", ", ")
     mnemonic, separator, operands = text.partition(" ")
     if not separator:
         return text

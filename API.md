@@ -170,7 +170,7 @@ changes both.
 `is_loaded()` is file coverage, not hardware state. Unwritten bytes and
 bytes explicitly loaded as `0xFF` both read `0xFF`; only `is_loaded()`
 separates them. `format()` returns `NULL` if any byte of the instruction was
-never loaded. The CPU still executes that cell as `0xFF` (`MOV R7,A`).
+never loaded. The CPU still executes that cell as `0xFF` (`MOV R7, A`).
 
 `decode()` and `disassemble()` always work; an empty program is filled with
 `0xFF`.

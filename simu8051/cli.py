@@ -456,7 +456,7 @@ class CLI:
         address = parse_int(args[0]) if args else self.session.pc
         count = parse_int(args[1]) if len(args) > 1 else 8
         for inst in self.session.disassemble(address, count):
-            print(f"{inst.address:04X}  {inst.raw.hex():<6} {self.session.format(inst)}")
+            print(f"{inst.address:04X}  {inst.raw.hex():<6}   {self.session.format(inst)}")
 
     def cmd_reset(self, args: list[str]) -> None:
         word = args[0].lower() if args else ""
