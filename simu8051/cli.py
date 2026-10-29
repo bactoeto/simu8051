@@ -381,6 +381,8 @@ class CLI:
         if not args:
             raise ValueError("usage: break ADDR | break cycle N")
         if canonical(args[0]) == "cycle":
+            if len(args) < 2:
+                raise ValueError("usage: break cycle N")
             cycle = parse_int(args[1])
             self.session.break_at_cycle(cycle)
             print(f"breakpoint at cycle {cycle}")
@@ -411,12 +413,16 @@ class CLI:
         print(f"display {len(self.displays)}: {self.displays[-1]['label']}")
 
     def cmd_undisplay(self, args: list[str]) -> None:
+        if not args:
+            raise ValueError("usage: undisplay N")
         index = parse_int(args[0])
         if not 1 <= index <= len(self.displays):
             raise ValueError("bad display index")
         self.displays.pop(index - 1)
 
     def cmd_toggle(self, args: list[str], enabled: bool) -> None:
+        if not args:
+            raise ValueError("usage: enable N" if enabled else "usage: disable N")
         index = parse_int(args[0])
         if not 1 <= index <= len(self.displays):
             raise ValueError("bad display index")
@@ -563,11 +569,15 @@ def main(argv=None) -> int:
 
     session.set_trace(print if args.trace else None)
 
-    for spec in args.breaks:
-        if spec.lower().startswith("cycle:"):
-            session.break_at_cycle(parse_int(spec.split(":", 1)[1]))
-        else:
-            session.break_at(parse_int(spec))
+    try:
+        for spec in args.breaks:
+            if spec.lower().startswith("cycle:"):
+                session.break_at_cycle(parse_int(spec.split(":", 1)[1]))
+            else:
+                session.break_at(parse_int(spec))
+    except Exception as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
     displays: list[dict] = []
     if not args.no_default_display:

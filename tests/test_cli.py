@@ -75,6 +75,32 @@ class CLITests(unittest.TestCase):
         self.assertIn("[2] sfr TCON:", proc.stdout)
         self.assertIn("breakpoint at 0x0033", proc.stdout)
 
+    def test_invalid_break_option_exits_cleanly(self):
+        for spec in ("foo", "cycle:foo"):
+            proc = subprocess.run(
+                [sys.executable, "-m", "simu8051", str(FIXTURE), "--batch", "--break", spec],
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                timeout=20,
+            )
+            self.assertEqual(proc.returncode, 2, spec)
+            self.assertIn("error:", proc.stderr)
+            self.assertNotIn("Traceback", proc.stderr)
+
+    def test_missing_command_arguments(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="break cycle\nundisplay\nenable\ndisable\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stderr.count("error:"), 4)
+        self.assertNotIn("Traceback", proc.stderr)
+
     def test_bad_hex_exit_code(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", "does-not-exist.hex", "--batch"],
