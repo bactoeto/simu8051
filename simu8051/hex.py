@@ -19,32 +19,15 @@ class HexError(Exception):
 
 
 @dataclass
-class HexRecord:
-    line: int
-    rectype: int
-    address: int
-    data: bytes
-
-
-@dataclass
 class Image:
     code: bytearray = field(default_factory=lambda: bytearray([0xFF]) * CODE_SIZE)
     start: Optional[int] = None
-    records: list[HexRecord] = field(default_factory=list)
-    min_addr: Optional[int] = None
-    max_addr: Optional[int] = None
 
     def write(self, address: int, data: bytes) -> None:
         end = address + len(data)
         if address < 0 or end > CODE_SIZE:
             raise HexError(f"data range 0x{address:04X}-0x{end - 1:04X} outside 64K")
         self.code[address:end] = data
-        if data:
-            if self.min_addr is None or address < self.min_addr:
-                self.min_addr = address
-            last = end - 1
-            if self.max_addr is None or last > self.max_addr:
-                self.max_addr = last
 
 
 def _hex_byte(text: str, lineno: int) -> int:
@@ -90,9 +73,6 @@ def load_hex(path: str | Path) -> Image:
         checksum = raw_bytes[-1]
         if (sum(raw_bytes[:-1]) + checksum) & 0xFF:
             raise HexError(f"line {lineno}: checksum mismatch")
-
-        record = HexRecord(line=lineno, rectype=rectype, address=address, data=data)
-        image.records.append(record)
 
         if rectype == 0x00:  # data
             absolute = base + address
@@ -173,24 +153,6 @@ def decode_at(image: Image, pc: int) -> Instruction:
         cycles=entry["cycles"],
         args=raw[1:],
     )
-
-
-def disassemble(image: Image, start: int = 0, end: int = CODE_SIZE) -> list[Instruction]:
-    """Linear disassembly. Stop when the next instruction would pass end."""
-    result: list[Instruction] = []
-    pc = start & 0xFFFF
-    end &= 0xFFFF
-    while True:
-        inst = decode_at(image, pc)
-        if pc + inst.size > end:
-            break
-        result.append(inst)
-        pc = (pc + inst.size) & 0xFFFF
-        if pc == (end & 0xFFFF):
-            break
-        if pc == 0 and start != 0:
-            break
-    return result
 
 
 def _signed8(value: int) -> int:

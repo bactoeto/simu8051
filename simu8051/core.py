@@ -119,11 +119,6 @@ class Core:
         return bool(self.read_latch(SFR["PCON"]) & 0x02)
 
     @property
-    def oscillator_cycles(self) -> int:
-        """Oscillator cycles elapsed (12 per machine cycle)."""
-        return self.cycle * 12
-
-    @property
     def instruction_pc(self) -> int:
         """PC of the instruction currently being executed."""
         return self._instr_pc

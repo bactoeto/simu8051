@@ -144,7 +144,6 @@ data/
   memory.json        memory, SFR and reset data
 
 tools/               data extraction, build, validation, table generation
-tools/archive/       ucsim comparison scripts
 tests/               unit, CLI and public-API contract tests
 tests/fixtures/      as31 HEX fixtures
 examples/            plugin examples
