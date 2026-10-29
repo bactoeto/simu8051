@@ -22,7 +22,12 @@ as31 -l firmware.asm
 python3 -m simu8051 firmware.hex
 python3 -m simu8051 firmware.hex --batch --max-cycles 100000
 python3 -m simu8051 firmware.hex --plugin stimulus.py
+tools/asmrun.sh firmware.asm
 ```
+
+`tools/asmrun.sh` assembles a `.asm` file and starts the simulator; extra
+arguments are passed through, for example
+`tools/asmrun.sh firmware.asm --batch --max-cycles 1000`.
 
 `cli.py` is only a reference front end. Every front end should use
 `simu8051.session`; see [API.md](API.md). `core.py`, `hex.py`, `plugin.py`
