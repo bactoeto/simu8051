@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from simu8051.cli import completion_candidates, history_path, path_candidates
+from simu8051.cli_shell import completion_candidates, history_path, path_candidates
 
 ROOT = Path(__file__).resolve().parent.parent
 

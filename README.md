@@ -120,6 +120,7 @@ API.md               public API reference and contract
 simu8051/            simulator package
   cli.py             reference CLI (optional front end)
   cli_format.py      CLI table, memory and colour rendering
+  cli_shell.py       CLI commands, completion, history and prompt
   __main__.py        entry point for `python3 -m simu8051`
   session.py         Session: the public API for stepping and inspection
   core.py            CPU, memory, ports, timers, interrupts
