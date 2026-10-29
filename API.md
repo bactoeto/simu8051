@@ -214,7 +214,7 @@ session.set_trace(None)
 Prints one line per instruction:
 
 ```text
-    1234 0030 MOV A,#0x00
+    1234 0030 MOV     A,#0x00
 ```
 
 ## Errors

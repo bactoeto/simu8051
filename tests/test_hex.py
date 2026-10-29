@@ -65,13 +65,13 @@ class HexTests(unittest.TestCase):
     def test_format_direct_operand(self):
         img = hx.Image()
         img.write(0, bytes([0xE5, 0x41]))
-        self.assertEqual(hx.format_instruction(hx.decode_at(img, 0)), "MOV A,0x41")
+        self.assertEqual(hx.format_instruction(hx.decode_at(img, 0)), "MOV     A,0x41")
 
     def test_unwritten_memory_is_erased(self):
         img = hx.Image()
         inst = hx.decode_at(img, 0)
         self.assertEqual(inst.opcode, 0xFF)
-        self.assertEqual(hx.format_instruction(inst), "MOV R7,A")
+        self.assertEqual(hx.format_instruction(inst), "MOV     R7,A")
 
 
 if __name__ == "__main__":

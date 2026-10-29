@@ -240,7 +240,7 @@ class InspectionTests(unittest.TestCase):
         self.assertFalse(session.is_loaded(1))
         session.write("code", 1, 0xFF)
         self.assertTrue(session.is_loaded(1))
-        self.assertEqual(session.format(session.decode(1)), "MOV R7,A")
+        self.assertEqual(session.format(session.decode(1)), "MOV     R7,A")
 
     def test_partial_instruction_is_null(self):
         session = Session.from_bytes(bytes([0x02]))

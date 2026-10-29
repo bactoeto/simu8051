@@ -163,7 +163,7 @@ def _signed8(value: int) -> int:
     return value - 256 if value & 0x80 else value
 
 
-def format_instruction(inst: Instruction) -> str:
+def _format_instruction(inst: Instruction) -> str:
     """Format an instruction using actual operand values where possible."""
     if inst.reserved:
         return f"0x{inst.opcode:02X}  reserved"
@@ -243,3 +243,14 @@ def format_instruction(inst: Instruction) -> str:
     if "bit" in form and args:
         text = text.replace("bit", f"0x{args[0]:02X}", 1)
     return text
+
+
+def format_instruction(inst: Instruction) -> str:
+    """Render an instruction with the mnemonic aligned to column 9."""
+    text = _format_instruction(inst)
+    if inst.reserved:
+        return text
+    mnemonic, separator, operands = text.partition(" ")
+    if not separator:
+        return text
+    return f"{mnemonic:<8}{operands.lstrip()}"
