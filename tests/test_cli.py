@@ -28,7 +28,7 @@ class CLITests(unittest.TestCase):
             cwd=ROOT,
             text=True,
             capture_output=True,
-            input="b 0x0030\nr\ns 2\nreg\nq\n",
+            input="b 0x0030\nr\ns 2\nq\n",
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -46,7 +46,7 @@ class CLITests(unittest.TestCase):
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("2: [on] sfr TCON", proc.stdout)
+        self.assertIn("1: [on] sfr TCON", proc.stdout)
         self.assertIn("breakpoint at cycle 10", proc.stdout)
 
     def test_batch_run(self):
@@ -58,10 +58,10 @@ class CLITests(unittest.TestCase):
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("[1] regs:", proc.stdout)
+        self.assertIn("T0=0x", proc.stdout)
 
     def test_interactive_display_and_break(self):
-        script = "step\ndisplay sfr TCON\nstep\nundisplay 2\nbreak 0x0033\ncontinue\nquit\n"
+        script = "step\ndisplay sfr TCON\nstep\nundisplay 1\nbreak 0x0033\ncontinue\nquit\n"
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],
             cwd=ROOT,
@@ -71,8 +71,8 @@ class CLITests(unittest.TestCase):
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("display 2: sfr TCON", proc.stdout)
-        self.assertIn("[2] sfr TCON:", proc.stdout)
+        self.assertIn("display 1: sfr TCON", proc.stdout)
+        self.assertIn("[1] sfr TCON:", proc.stdout)
         self.assertIn("breakpoint at 0x0033", proc.stdout)
 
     def test_invalid_break_option_exits_cleanly(self):
@@ -117,7 +117,7 @@ class CLITests(unittest.TestCase):
             [
                 sys.executable, "-m", "simu8051", str(FIXTURE),
                 "--batch", "--max-cycles", "2",
-                "--display", "mem i 0x20 4",
+                "--display", "x i 0x20 4",
             ],
             cwd=ROOT,
             text=True,
@@ -125,7 +125,7 @@ class CLITests(unittest.TestCase):
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("[2] mem i", proc.stdout)
+        self.assertIn("[1] x i 0x20 4", proc.stdout)
 
     def test_unwritten_code_shows_null(self):
         proc = subprocess.run(
@@ -231,17 +231,6 @@ class CLITests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(proc.stderr.count("error:"), 3)
-
-    def test_no_default_display(self):
-        proc = subprocess.run(
-            [sys.executable, "-m", "simu8051", str(FIXTURE), "--batch", "--max-cycles", "2", "--no-default-display"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            timeout=20,
-        )
-        self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertNotIn("[1] regs:", proc.stdout)
 
 
 if __name__ == "__main__":

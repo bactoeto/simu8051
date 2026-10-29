@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Interactive CLI for the 8051 simulator."""
+"""Interactive CLI for the 8051 simulator.
+
+This module is a consumer of simu8051.session. It owns presentation only.
+"""
 from __future__ import annotations
 
 import argparse
@@ -19,14 +22,13 @@ from .session import Session
 
 COMMON_SFRS = [
     "P0", "P1", "P2", "P3", "SP", "DPL", "DPH", "PSW", "ACC", "B",
-    "IE", "IP", "TCON", "TMOD", "TH0", "TL0", "TH1", "TL1", "SCON", "PCON",
+    "IE", "IP", "TCON", "TMOD", "TH0", "TL0", "TH1", "TL1", "SCON", "SBUF", "PCON",
 ]
 
 COMMANDS = (
     "run", "step", "cycle", "continue", "break", "delete",
-    "regs", "sfr", "x", "w", "disassemble", "reset", "load",
-    "display", "undisplay", "enable", "disable", "info",
-    "help", "quit",
+    "sfr", "x", "w", "disassemble", "reset", "load",
+    "display", "undisplay", "enable", "disable", "info", "help", "quit",
 )
 ALIASES = {
     "r": "run",
@@ -38,7 +40,6 @@ ALIASES = {
     "clear": "delete",
     "d": "disassemble",
     "i": "info",
-    "reg": "regs",
     "sf": "sfr",
     "res": "reset",
     "l": "load",
@@ -52,16 +53,15 @@ ALIASES = {
     "q": "quit",
     "exit": "quit",
 }
+DISPLAY_COMMANDS = ("sfr", "x", "disassemble")
+SPACES = ("i", "x", "c")
+INFO_KINDS = ("break", "display")
+SFR_NAMES = Session.sfr_names
+
+
 def canonical(word: str) -> str:
     """Resolve a command or subcommand alias to its canonical name."""
     return ALIASES.get(word.lower(), word.lower())
-
-
-REG_NAMES = Session.register_names
-SFR_NAMES = Session.sfr_names
-SPACES = ("i", "x", "c")
-DISPLAY_KINDS = ("regs", "reg", "sfr", "mem", "bit")
-INFO_KINDS = ("break", "display")
 
 
 def history_path() -> Path:
@@ -83,7 +83,7 @@ def completion_candidates(tokens: list[str], text: str) -> list[str]:
     """Return possible completions for the word after `tokens`."""
     if not tokens:
         return [name for name in (*COMMANDS, *ALIASES) if name.startswith(text)]
-    head = ALIASES.get(tokens[0].lower(), tokens[0].lower())
+    head = canonical(tokens[0])
     if head == "load" and len(tokens) == 1:
         return path_candidates(text)
     if head == "sfr" and len(tokens) == 1:
@@ -92,14 +92,8 @@ def completion_candidates(tokens: list[str], text: str) -> list[str]:
         return [name for name in SPACES if name.startswith(text.lower())]
     if head == "display":
         if len(tokens) == 1:
-            return [name for name in DISPLAY_KINDS if name.startswith(text.lower())]
-        kind = tokens[1].lower()
-        if kind == "mem" and len(tokens) == 2:
-            return [name for name in SPACES if name.startswith(text.lower())]
-        if kind == "reg" and len(tokens) == 2:
-            return [name for name in REG_NAMES if name.lower().startswith(text.lower())]
-        if kind == "sfr" and len(tokens) == 2:
-            return [name for name in SFR_NAMES if name.lower().startswith(text.lower())]
+            return [name for name in DISPLAY_COMMANDS if name.startswith(text.lower())]
+        return completion_candidates(tokens[1:], text)
     if head == "break" and len(tokens) == 1:
         return [name for name in ("cycle", "cy") if name.startswith(text.lower())]
     if head == "info" and len(tokens) == 1:
@@ -135,7 +129,6 @@ def install_readline() -> None:
         pass
     _readline.set_history_length(1000)
     _readline.set_completer(_completer)
-    # GNU readline does not bind Tab to completion by default (unlike bash).
     _readline.parse_and_bind("tab: complete")
     atexit.register(_save_history)
 
@@ -156,12 +149,49 @@ def prompt_text() -> str:
     colour = "\033[32m8051>\033[0m "
     if _readline is None:
         return colour
-    #  and  tell readline which bytes do not occupy screen columns.
     return "\001\033[32m\0028051>\001\033[0m\002 "
 
 
 HELP_TEXT = """\
-Commands\n\n  Command      Aliases  Arguments            Description\n  ------------------------------------------------------\n\n  Execution\n  run          r        [N]                  run N instructions; omit N to run until a stop\n  step         s        [N]                  execute N instructions (default 1)\n  cycle        cy       [N]                  execute N machine cycles (default 1)\n  continue     c                             resume after a stop\n  reset        res      [cold]               reset; "cold" also clears IRAM and XDATA\n\n  Breakpoints\n  break        b        ADDR                 stop at PC ADDR, e.g. 0x0030\n  break cycle           N                    stop at machine cycle N\n  delete       del                           clear all breakpoints\n  info         i        break|display        list breakpoints or displays\n\n  Inspection\n  regs         reg                           PC, ACC, B, PSW, SP, DPTR, cycle\n  sfr          sf       [NAME]               all common SFRs, or one by name\n  x                     SPACE ADDR [N]       dump; 8 per row, default 2 rows: i, x, c\n  w                     SPACE ADDR VALUE...  write bytes: i, x, c (c patches ROM)\n  disassemble  d        [ADDR] [N]           disassemble N instructions (default 8)\n  display      dp       SPEC                 add a persistent display\n  undisplay    und      N                    remove display item N\n  enable       on       N                    turn display item N on\n  disable      off      N                    turn display item N off\n\n  Other\n  load         l        FILE                 load another HEX file\n  help         h, ?                          show this text\n  quit         q, exit                       leave the simulator\n\n  Numbers   decimal or 0x/0o/0b prefix: 48  0x30  0o60  0b110000\n  Spaces    i = internal RAM | x = external RAM | c = ROM\n  Display   regs | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]\n  Step      current instruction printed after every stop\n  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit\n"""
+Commands
+
+  Command              Aliases  Arguments            Description
+  --------------------------------------------------------------
+
+  Execution
+  run                  r        [N]                  run N instructions or until a stop
+  step                 s        [N]                  execute N instructions (default 1)
+  cycle                cy       [N]                  execute N machine cycles (default 1)
+  continue             c                             continue after a stop
+  reset                res      [cold]               reset; cold also clears IRAM/XDATA
+
+  Breakpoints
+  break                b        ADDR                 stop at PC ADDR
+  break cycle          N                             stop at machine cycle N
+  delete               del                           clear breakpoints
+  info                 i        break|display        list breakpoints or displays
+
+  Inspection
+  sfr                  sf       [NAME]               all SFRs, or one by name
+  x                    SPACE ADDR [N]               dump; 8 per row, default 2 rows
+  w                    SPACE ADDR VALUE...          write i, x or c
+  disassemble          d        [ADDR] [N]           disassemble N instructions
+  display              dp       COMMAND...           run a command after every stop
+  undisplay            und      N                    remove a display item
+  enable               on       N                    enable a display item
+  disable              off      N                    disable a display item
+
+  Other
+  load                 l        FILE                 load another HEX file
+  help                 h, ?                          show this text
+  quit                 q, exit                       leave the simulator
+
+  Numbers   decimal or 0x/0o/0b prefix
+  Spaces    i = internal RAM | x = external RAM | c = ROM
+  Display   sfr [NAME] | x SPACE ADDR [N] | disassemble [ADDR] [N]
+  Output    current instruction and registers after every stop
+  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit
+"""
 
 
 def parse_int(text: str) -> int:
@@ -204,7 +234,6 @@ def format_regs(session: Session) -> str:
         ["PC", "ACC", "B", "PSW", "SP", "DPTR", "cycle"],
         [f"R{i}" for i in range(8)],
         ["CY", "AC", "F0", "RS1", "RS0", "OV", "F1", "P"],
-        ["TH0", "TL0", "TH1", "TL1", "TMOD", "TCON"],
     ]
     values = [
         [
@@ -218,16 +247,15 @@ def format_regs(session: Session) -> str:
         ],
         [f"0x{session.get_reg(f'R{i}'):02X}" for i in range(8)],
         [str((psw >> bit) & 1) for bit in range(7, -1, -1)],
-        [
-            f"0x{session.get_sfr('TH0'):02X}",
-            f"0x{session.get_sfr('TL0'):02X}",
-            f"0x{session.get_sfr('TH1'):02X}",
-            f"0x{session.get_sfr('TL1'):02X}",
-            f"0x{session.get_sfr('TMOD'):02X}",
-            f"0x{session.get_sfr('TCON'):02X}",
-        ],
     ]
-    return _table(headers, values)
+    t0 = (session.get_sfr("TH0") << 8) | session.get_sfr("TL0")
+    t1 = (session.get_sfr("TH1") << 8) | session.get_sfr("TL1")
+    timers = (
+        f"T0=0x{t0:04X}  T1=0x{t1:04X}  "
+        f"TMOD=0x{session.get_sfr('TMOD'):02X}  "
+        f"TCON=0x{session.get_sfr('TCON'):02X}"
+    )
+    return f"{_table(headers, values)}\n{timers}"
 
 
 def format_sfr(session: Session, name: str) -> str:
@@ -273,70 +301,13 @@ def _read_space(session: Session, space: str, address: int) -> int:
     raise ValueError(f"unknown space {space!r}")
 
 
-def display_value(session: Session, item: tuple) -> str:
-    kind = item[0]
-    if kind == "regs":
-        return format_regs(session)
-    if kind == "reg":
-        return f"{item[1]}=0x{session.get_reg(item[1]):02X}"
-    if kind == "sfr":
-        return format_sfr(session, item[1])
-    if kind == "mem":
-        return format_mem(session, item[1], item[2], item[3])
-    if kind == "bit":
-        return format_mem(session, "bit", item[1], item[2])
-    return ""
-
-
-def print_displays(session: Session, displays: list[dict]) -> None:
-    for index, item in enumerate(displays, 1):
-        if not item["enabled"]:
-            continue
-        try:
-            value = display_value(session, item["spec"])
-        except Exception as exc:
-            value = f"<display error: {exc}>"
-        prefix = f"[{index}] {item['label']}:"
-        if "\n" in value:
-            print(prefix)
-            print(value)
-        else:
-            print(f"{prefix} {value}")
-
-
-def parse_display(args: list[str]) -> tuple:
+def parse_display(args: list[str]) -> list[str]:
     if not args:
-        raise ValueError("usage: display regs | reg NAME | sfr NAME | mem SPACE ADDR [N] | bit ADDR [N]")
-    kind = args[0].lower()
-    if kind == "regs" and len(args) == 1:
-        return ("regs",)
-    if kind == "reg" and len(args) == 2:
-        return ("reg", args[1].upper())
-    if kind == "sfr" and len(args) == 2:
-        return ("sfr", args[1].upper())
-    if kind == "mem" and len(args) in (3, 4):
-        count = parse_int(args[3]) if len(args) == 4 else None
-        return ("mem", args[1].lower(), parse_int(args[2]), count)
-    if kind == "bit" and len(args) in (2, 3):
-        count = parse_int(args[2]) if len(args) == 3 else None
-        return ("bit", parse_int(args[1]), count)
-    raise ValueError("bad display specification")
-
-
-def display_label(spec: tuple) -> str:
-    if spec[0] == "regs":
-        return "regs"
-    if spec[0] == "reg":
-        return f"reg {spec[1]}"
-    if spec[0] == "sfr":
-        return f"sfr {spec[1]}"
-    if spec[0] == "mem":
-        text = f"mem {spec[1]} 0x{spec[2]:X}"
-        return text if spec[3] is None else f"{text} {spec[3]}"
-    if spec[0] == "bit":
-        text = f"bit 0x{spec[1]:X}"
-        return text if spec[2] is None else f"{text} {spec[2]}"
-    return spec[0]
+        raise ValueError("usage: display COMMAND...")
+    head = canonical(args[0])
+    if head not in DISPLAY_COMMANDS:
+        raise ValueError("display: use sfr, x or disassemble")
+    return [head, *args[1:]]
 
 
 class CLI:
@@ -345,18 +316,60 @@ class CLI:
         self.displays = displays
         self.quit = False
 
+    # ------------------------------------------------------------------
+    # output
+    # ------------------------------------------------------------------
     def current_step(self) -> str:
         text = self.session.format(self.session.decode())
         return f"PC=0x{self.session.pc:04X}  {text}"
 
-    def stop_display(self, result) -> None:
-        if result.reason is not None:
-            print(result.reason)
-        print(self.current_step())
-        print_displays(self.session, self.displays)
+    def registers(self) -> str:
+        return format_regs(self.session)
 
-    def cmd_help(self) -> None:
-        print(HELP_TEXT)
+    def after_stop(self, reason) -> None:
+        if reason is not None:
+            print(reason)
+        print(self.current_step())
+        print(self.registers())
+        self.print_displays()
+
+    def print_displays(self) -> None:
+        for index, item in enumerate(self.displays, 1):
+            if not item["enabled"]:
+                continue
+            try:
+                text = self.run_command(" ".join(item["command"])) or ""
+            except Exception as exc:
+                text = f"<display error: {exc}>"
+            text = text.rstrip("\n")
+            prefix = f"[{index}] {item['label']}:"
+            if "\n" in text:
+                print(prefix)
+                print(text)
+            elif text:
+                print(f"{prefix} {text}")
+            else:
+                print(prefix)
+
+    # ------------------------------------------------------------------
+    # dispatch
+    # ------------------------------------------------------------------
+    def run_command(self, line: str) -> str | None:
+        parts = shlex.split(line)
+        if not parts:
+            return None
+        command = canonical(parts[0])
+        handler = getattr(self, "cmd_" + command, None)
+        if handler is None:
+            raise ValueError(f"unknown command: {command}")
+        return handler(parts[1:])
+
+    def cmd_quit(self, args: list[str]) -> None:
+        self.quit = True
+        return None
+
+    def cmd_help(self, args: list[str]) -> str:
+        return HELP_TEXT
 
     def cmd_step(self, args: list[str]) -> None:
         count = parse_int(args[0]) if args else 1
@@ -366,7 +379,8 @@ class CLI:
             if result.reason:
                 break
         if result:
-            self.stop_display(result)
+            self.after_stop(result.reason)
+        return None
 
     def cmd_cycle(self, args: list[str]) -> None:
         count = parse_int(args[0]) if args else 1
@@ -376,18 +390,36 @@ class CLI:
             if result.reason:
                 break
         if result:
-            self.stop_display(result)
+            self.after_stop(result.reason)
+        return None
 
     def cmd_run(self, args: list[str]) -> None:
-        max_instructions = parse_int(args[0]) if args else None
-        result = self.session.run(max_instructions=max_instructions)
-        self.stop_display(result)
+        limit = parse_int(args[0]) if args else None
+        result = self.session.run(max_instructions=limit)
+        self.after_stop(result.reason)
+        return None
 
-    def cmd_continue(self) -> None:
+    def cmd_continue(self, args: list[str]) -> None:
         result = self.session.run()
-        self.stop_display(result)
+        self.after_stop(result.reason)
+        return None
 
-    def cmd_break(self, args: list[str]) -> None:
+    def cmd_reset(self, args: list[str]) -> None:
+        word = args[0].lower() if args else ""
+        self.session.reset(cold=word == "c" or canonical(word) == "cold")
+        print("reset")
+        print(self.current_step())
+        print(self.registers())
+        self.print_displays()
+        return None
+
+    def cmd_load(self, args: list[str]) -> str:
+        if not args:
+            raise ValueError("usage: load FILE")
+        self.session.load(args[0])
+        return f"loaded {args[0]}\n{self.current_step()}\n{self.registers()}"
+
+    def cmd_break(self, args: list[str]) -> str:
         if not args:
             raise ValueError("usage: break ADDR | break cycle N")
         if canonical(args[0]) == "cycle":
@@ -395,32 +427,71 @@ class CLI:
                 raise ValueError("usage: break cycle N")
             cycle = parse_int(args[1])
             self.session.break_at_cycle(cycle)
-            print(f"breakpoint at cycle {cycle}")
-        else:
-            addr = parse_int(args[0])
-            self.session.break_at(addr)
-            print(f"breakpoint at 0x{addr:04X}")
+            return f"breakpoint at cycle {cycle}"
+        address = parse_int(args[0])
+        self.session.break_at(address)
+        return f"breakpoint at 0x{address:04X}"
 
-    def cmd_info(self, args: list[str]) -> None:
+    def cmd_delete(self, args: list[str]) -> str:
+        self.session.clear_breakpoints()
+        return "breakpoints cleared"
+
+    def cmd_info(self, args: list[str]) -> str:
         what = canonical(args[0]) if args else "break"
         if what == "break":
-            print("pc:", " ".join(f"0x{x:04X}" for x in sorted(self.session.breakpoints_pc)) or "(none)")
-            print("cycle:", " ".join(str(x) for x in sorted(self.session.breakpoints_cycle)) or "(none)")
-        elif what == "display":
-            for i, item in enumerate(self.displays, 1):
-                state = "on" if item["enabled"] else "off"
-                print(f"{i}: [{state}] {item['label']}")
-        else:
-            raise ValueError("info break | info display")
+            pc = " ".join(f"0x{x:04X}" for x in sorted(self.session.breakpoints_pc))
+            cyc = " ".join(str(x) for x in sorted(self.session.breakpoints_cycle))
+            return f"pc: {pc or '(none)'}\ncycle: {cyc or '(none)'}"
+        if what == "display":
+            return "\n".join(
+                f"{i}: [{'on' if item['enabled'] else 'off'}] {item['label']}"
+                for i, item in enumerate(self.displays, 1)
+            )
+        raise ValueError("info break | info display")
 
-    def cmd_display(self, args: list[str]) -> None:
-        spec = parse_display(args)
+    def cmd_sfr(self, args: list[str]) -> str:
+        names = [args[0].upper()] if args else COMMON_SFRS
+        return " ".join(format_sfr(self.session, name) for name in names)
+
+    def cmd_x(self, args: list[str]) -> str:
+        if len(args) < 2 or args[0].lower() not in SPACES:
+            raise ValueError("usage: x i|x|c ADDR [N]")
+        space, address = args[0].lower(), parse_int(args[1])
+        count = parse_int(args[2]) if len(args) > 2 else None
+        return format_mem(self.session, space, address, count)
+
+    def cmd_w(self, args: list[str]) -> str:
+        if len(args) < 3 or args[0].lower() not in SPACES:
+            raise ValueError("usage: w i|x|c ADDR VALUE...")
+        space, address = args[0].lower(), parse_int(args[1])
+        values = [parse_int(text) for text in args[2:]]
+        if any(not 0 <= value <= 0xFF for value in values):
+            raise ValueError("value out of range")
+        if space == "i" and not 0 <= address <= 0x7F:
+            raise ValueError("internal RAM is 0x00-0x7F")
+        if space == "i" and address + len(values) > 0x80:
+            raise ValueError("internal RAM is 0x00-0x7F")
+        target = {"i": "iram", "x": "xdata", "c": "code"}[space]
+        for offset, value in enumerate(values):
+            self.session.write(target, address + offset, value)
+        return format_mem(self.session, space, address, len(values))
+
+    def cmd_disassemble(self, args: list[str]) -> str:
+        address = parse_int(args[0]) if args else self.session.pc
+        count = parse_int(args[1]) if len(args) > 1 else 8
+        return "\n".join(
+            f"{inst.address:04X}  {inst.raw.hex():<6}   {self.session.format(inst)}"
+            for inst in self.session.disassemble(address, count)
+        )
+
+    def cmd_display(self, args: list[str]) -> str:
+        command = parse_display(args)
         for item in self.displays:
-            if item["spec"] == spec:
-                print(f"already registered as {self.displays.index(item) + 1}")
-                return
-        self.displays.append({"spec": spec, "label": display_label(spec), "enabled": True})
-        print(f"display {len(self.displays)}: {self.displays[-1]['label']}")
+            if item["command"] == command:
+                return f"already registered as {self.displays.index(item) + 1}"
+        label = " ".join(args)
+        self.displays.append({"command": command, "label": label, "enabled": True})
+        return f"display {len(self.displays)}: {label}"
 
     def cmd_undisplay(self, args: list[str]) -> None:
         if not args:
@@ -429,6 +500,7 @@ class CLI:
         if not 1 <= index <= len(self.displays):
             raise ValueError("bad display index")
         self.displays.pop(index - 1)
+        return None
 
     def cmd_toggle(self, args: list[str], enabled: bool) -> None:
         if not args:
@@ -437,105 +509,17 @@ class CLI:
         if not 1 <= index <= len(self.displays):
             raise ValueError("bad display index")
         self.displays[index - 1]["enabled"] = enabled
+        return None
 
-    def cmd_sfr(self, args: list[str]) -> None:
-        names = [args[0].upper()] if args else COMMON_SFRS
-        print(" ".join(format_sfr(self.session, name) for name in names))
+    def cmd_enable(self, args: list[str]) -> None:
+        return self.cmd_toggle(args, True)
 
-    def cmd_x(self, args: list[str]) -> None:
-        if len(args) < 2 or args[0].lower() not in SPACES:
-            raise ValueError("usage: x i|x|c ADDR [N]")
-        space, address = args[0].lower(), parse_int(args[1])
-        count = parse_int(args[2]) if len(args) > 2 else None
-        print(format_mem(self.session, space, address, count))
+    def cmd_disable(self, args: list[str]) -> None:
+        return self.cmd_toggle(args, False)
 
-    def cmd_w(self, args: list[str]) -> None:
-        if len(args) < 3 or args[0].lower() not in SPACES:
-            raise ValueError("usage: w i|x|c ADDR VALUE...")
-        space, address = args[0].lower(), parse_int(args[1])
-        values = [parse_int(text) for text in args[2:]]
-        for value in values:
-            if not 0 <= value <= 0xFF:
-                raise ValueError(f"value out of range: {value}")
-        if space == "i" and not 0 <= address <= 0x7F:
-            raise ValueError("internal RAM is 0x00-0x7F")
-        if space == "i" and address + len(values) > 0x80:
-            raise ValueError("internal RAM is 0x00-0x7F")
-        target = {"i": "iram", "x": "xdata", "c": "code"}[space]
-        for offset, value in enumerate(values):
-            self.session.write(target, address + offset, value)
-        print(format_mem(self.session, space, address, len(values)))
-
-    def cmd_dis(self, args: list[str]) -> None:
-        address = parse_int(args[0]) if args else self.session.pc
-        count = parse_int(args[1]) if len(args) > 1 else 8
-        for inst in self.session.disassemble(address, count):
-            print(f"{inst.address:04X}  {inst.raw.hex():<6}   {self.session.format(inst)}")
-
-    def cmd_reset(self, args: list[str]) -> None:
-        word = args[0].lower() if args else ""
-        self.session.reset(cold=word == "c" or canonical(word) == "cold")
-        print("reset")
-        print(self.current_step())
-        print_displays(self.session, self.displays)
-
-    def cmd_load(self, args: list[str]) -> None:
-        if not args:
-            raise ValueError("usage: load FILE")
-        self.session.load(args[0])
-        print(f"loaded {args[0]}")
-        print(self.current_step())
-
-    def dispatch(self, line: str) -> None:
-        parts = shlex.split(line)
-        if not parts:
-            return
-        cmd, args = parts[0].lower(), parts[1:]
-        cmd = canonical(cmd)
-        if cmd == "quit":
-            self.quit = True
-        elif cmd == "help":
-            self.cmd_help()
-        elif cmd == "step":
-            self.cmd_step(args)
-        elif cmd == "cycle":
-            self.cmd_cycle(args)
-        elif cmd == "run":
-            self.cmd_run(args)
-        elif cmd == "continue":
-            self.cmd_continue()
-        elif cmd == "break":
-            self.cmd_break(args)
-        elif cmd == "delete":
-            self.session.clear_breakpoints()
-            print("breakpoints cleared")
-        elif cmd == "info":
-            self.cmd_info(args)
-        elif cmd == "regs":
-            print(format_regs(self.session))
-        elif cmd == "sfr":
-            self.cmd_sfr(args)
-        elif cmd == "x":
-            self.cmd_x(args)
-        elif cmd == "w":
-            self.cmd_w(args)
-        elif cmd == "disassemble":
-            self.cmd_dis(args)
-        elif cmd == "reset":
-            self.cmd_reset(args)
-        elif cmd == "load":
-            self.cmd_load(args)
-        elif cmd == "display":
-            self.cmd_display(args)
-        elif cmd == "undisplay":
-            self.cmd_undisplay(args)
-        elif cmd == "enable":
-            self.cmd_toggle(args, True)
-        elif cmd == "disable":
-            self.cmd_toggle(args, False)
-        else:
-            print(f"unknown command: {cmd}")
-
+    # ------------------------------------------------------------------
+    # REPL
+    # ------------------------------------------------------------------
     def loop(self) -> int:
         install_readline()
         print(HELP_TEXT)
@@ -550,7 +534,9 @@ class CLI:
                 break
             print()
             try:
-                self.dispatch(line)
+                text = self.run_command(line)
+                if text:
+                    print(text)
             except Exception as exc:
                 print(f"error: {exc}", file=sys.stderr)
             print()
@@ -567,7 +553,6 @@ def main(argv=None) -> int:
     ap.add_argument("--run", action="store_true", help="run without REPL")
     ap.add_argument("--batch", action="store_true", help="alias for --run")
     ap.add_argument("--display", action="append", default=[])
-    ap.add_argument("--no-default-display", action="store_true")
     args = ap.parse_args(argv)
 
     try:
@@ -587,15 +572,13 @@ def main(argv=None) -> int:
         return 2
 
     displays: list[dict] = []
-    if not args.no_default_display:
-        displays.append({"spec": ("regs",), "label": "regs", "enabled": True})
     for text in args.display:
         try:
-            spec = parse_display(shlex.split(text))
+            command = parse_display(shlex.split(text))
         except Exception as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-        displays.append({"spec": spec, "label": display_label(spec), "enabled": True})
+        displays.append({"command": command, "label": text, "enabled": True})
 
     try:
         for path in args.plugin:
@@ -607,11 +590,12 @@ def main(argv=None) -> int:
     cli = CLI(session, displays)
     if args.run or args.batch:
         result = session.run(max_cycles=args.max_cycles)
-        cli.stop_display(result)
+        cli.after_stop(result.reason)
         return 1 if result.reason.kind == "trap" else 0
 
     print(f"loaded {args.hexfile}")
     print(cli.current_step())
+    print(cli.registers())
     return cli.loop()
 
 

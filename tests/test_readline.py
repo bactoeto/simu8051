@@ -19,9 +19,10 @@ class CompletionTests(unittest.TestCase):
         self.assertEqual(completion_candidates(["w"], "x"), ["x"])
 
     def test_display(self):
-        self.assertEqual(completion_candidates(["display"], "m"), ["mem"])
-        self.assertEqual(completion_candidates(["display", "mem"], "x"), ["x"])
-        self.assertEqual(completion_candidates(["display", "reg"], "p"), ["PSW", "PC"])
+        self.assertEqual(completion_candidates(["display"], "s"), ["sfr"])
+        self.assertEqual(completion_candidates(["display"], "d"), ["disassemble"])
+        self.assertEqual(completion_candidates(["display", "x"], "i"), ["i"])
+        self.assertEqual(completion_candidates(["display", "sfr"], "ac"), ["ACC"])
 
     def test_misc(self):
         self.assertEqual(completion_candidates(["info"], "b"), ["break", "b"])

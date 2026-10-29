@@ -55,14 +55,13 @@ break, b ADDR           set a PC breakpoint
 break cycle N           set a cycle breakpoint
 delete, del             clear breakpoints
 info, i break|display   list breakpoints or displays
-regs, reg               print common registers
 sfr, sf [NAME]          print SFRs
 x SPACE ADDR [N]        dump; 8 per row, default 2 rows: i (internal RAM), x (external RAM), c (ROM)
-w SPACE ADDR VALUE...   write memory: i, x, c (c patches the loaded image)
+w SPACE ADDR VALUE...   write memory: i, x, c (c patches program memory)
 disassemble, d [ADDR] [N]  disassemble
 reset, res [cold]       reset
 load, l FILE            load another HEX file
-display, dp ...         add a persistent display item
+display, dp COMMAND...   run a command after every stop
 undisplay, und N        remove a display item
 enable, on N            enable a display item
 disable, off N          disable a display item
@@ -82,12 +81,11 @@ or `?` to show it again.
 | `--break cycle:N` | set a cycle breakpoint; repeatable |
 | `--max-cycles N` | cycle limit for `--run` / `--batch` |
 | `--run`, `--batch` | run without the REPL |
-| `--display SPEC` | add a persistent display; repeatable |
-| `--no-default-display` | do not print `regs` after stops |
+| `--display COMMAND` | run a command after every stop; repeatable |
 
-`--display` accepts the same specifications as the `display` command:
-`regs`, `reg NAME`, `sfr NAME`, `mem SPACE ADDR [N]` and
-`bit ADDR [N]`. A dump always starts on an eight-byte row boundary; without
+`--display` takes a command string, for example `--display "x i 0x20 4"`.
+The command runs after every stop. Allowed commands are `sfr`, `x` and
+`disassemble`. A dump always starts on an eight-byte row boundary; without
 `N` it shows two rows.
 
 Exit codes: `0` for a normal stop, `1` when execution hits a reserved
@@ -105,9 +103,8 @@ Interactive mode keeps history in `~/.local/state/simu8051/history` (or
 `$XDG_STATE_HOME/simu8051/history`), completes commands with Tab, and supports
 Ctrl-L to clear the screen.
 
-After every stop the CLI prints the current instruction at PC, then the
-persistent displays. The default display is `regs`; use
-`--no-default-display` to disable it.
+After every stop the CLI prints the current instruction and the register
+table, then each display command.
 
 ## Layout
 
