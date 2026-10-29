@@ -353,14 +353,23 @@ class BoundaryTests(unittest.TestCase):
         for name in ("core", "image", "plugins"):
             self.assertFalse(hasattr(session, name), name)
 
-    def test_cli_imports_only_session(self):
-        tree = ast.parse((ROOT / "simu8051" / "cli.py").read_text(encoding="utf-8"))
-        relative = {
-            node.module
-            for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.level > 0
+    def test_cli_layer_imports_only_session(self):
+        allowed = {
+            "cli": {"session", "cli_format", "cli_shell"},
+            "cli_format": {"session"},
+            "cli_shell": {"session"},
         }
-        self.assertEqual(relative, {"session"})
+        for name, expected in allowed.items():
+            path = ROOT / "simu8051" / f"{name}.py"
+            if not path.exists():
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            relative = {
+                node.module
+                for node in ast.walk(tree)
+                if isinstance(node, ast.ImportFrom) and node.level > 0
+            }
+            self.assertLessEqual(relative, expected, name)
 
     def test_stop_reason_text(self):
         self.assertEqual(str(StopReason("pc_breakpoint", pc=0x30)), "pc breakpoint 0x0030")

@@ -252,7 +252,7 @@ class CLITests(unittest.TestCase):
             self.assertIn(expected, proc.stdout)
 
     def test_memory_format_always_full_rows(self):
-        from simu8051.cli import format_mem
+        from simu8051.cli_format import format_mem
         from simu8051.session import Session
 
         session = Session.from_bytes(b"\x00")
@@ -288,12 +288,13 @@ class CLITests(unittest.TestCase):
     def test_register_changes_are_red(self):
         from unittest import mock
 
-        from simu8051.cli import RED, RESET, CLI
+        from simu8051.cli import CLI
+        from simu8051.cli_format import RED, RESET
         from simu8051.session import Session
 
         session = Session.from_bytes(b"\x00")
         cli = CLI(session, [])
-        with mock.patch("simu8051.cli.use_color", return_value=True):
+        with mock.patch("simu8051.cli_format.use_color", return_value=True):
             first = cli.registers()
             session.set_reg("A", 0x42)
             session.step()
@@ -306,7 +307,8 @@ class CLITests(unittest.TestCase):
     def test_display_marks_changed_bytes(self):
         from unittest import mock
 
-        from simu8051.cli import RED, RESET, CLI
+        from simu8051.cli import CLI
+        from simu8051.cli_format import RED, RESET
         from simu8051.session import Session
 
         session = Session.from_bytes(b"\x00")
@@ -317,7 +319,7 @@ class CLITests(unittest.TestCase):
             "previous": None,
         }
         cli = CLI(session, [item])
-        with mock.patch("simu8051.cli.use_color", return_value=True):
+        with mock.patch("simu8051.cli_format.use_color", return_value=True):
             first = cli.display_text(item)
             session.write("iram", 0x20, 0x5A)
             second = cli.display_text(item)
@@ -331,15 +333,15 @@ class CLITests(unittest.TestCase):
     def test_colour_disabled_without_tty_or_no_color(self):
         from unittest import mock
 
-        from simu8051 import cli
+        from simu8051 import cli_format
 
         with mock.patch("sys.stdout.isatty", return_value=False):
-            self.assertFalse(cli.use_color())
+            self.assertFalse(cli_format.use_color())
         with mock.patch("sys.stdout.isatty", return_value=True):
             with mock.patch.dict("os.environ", {"NO_COLOR": ""}):
-                self.assertFalse(cli.use_color())
+                self.assertFalse(cli_format.use_color())
             with mock.patch.dict("os.environ", {}, clear=True):
-                self.assertTrue(cli.use_color())
+                self.assertTrue(cli_format.use_color())
 
     def test_memory_write_errors(self):
         proc = subprocess.run(
