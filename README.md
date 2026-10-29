@@ -91,9 +91,29 @@ quit, q, exit
 The command list is printed when the interactive prompt starts. Type `help`
 or `?` to show it again.
 
+### Options
+
+| Option | Meaning |
+|---|---|
+| `--plugin FILE` | load a plugin; repeatable |
+| `--break ADDR` | set a PC breakpoint; repeatable |
+| `--break cycle:N` | set a cycle breakpoint; repeatable |
+| `--max-cycles N` | cycle limit for `--run` / `--batch` |
+| `--run`, `--batch` | run without the REPL |
+| `--trace` | print each executed instruction |
+| `--display SPEC` | add a persistent display; repeatable |
+| `--no-default-display` | do not print `regs` after stops |
+
+`--display` accepts the same specifications as the `display` command:
+`regs`, `pc`, `reg NAME`, `sfr NAME`, `mem SPACE ADDR [N]` and
+`bit ADDR [N]`.
+
+Exit codes: `0` for a normal stop, `1` when execution hits a reserved
+opcode, `2` for a startup error.
+
 Memory is addressed as `i` (internal RAM, `0x00-0x7F`), `x` (external RAM,
-`0x0000-0xFFFF`) and `c` (program memory, `0x0000-0xFFFF`). `w c` patches the
-loaded image for debugging; real ROM cannot be written.
+`0x0000-0xFFFF`) and `c` (program memory, `0x0000-0xFFFF`). `w c` patches
+program memory for debugging; real ROM cannot be written.
 
 Interactive mode keeps history in `~/.local/state/simu8051/history` (or
 `$XDG_STATE_HOME/simu8051/history`), completes commands with Tab, and supports
