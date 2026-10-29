@@ -83,6 +83,19 @@ def parse_display(args: list[str]) -> list[str]:
     head = canonical(args[0])
     if head not in DISPLAY_COMMANDS:
         raise ValueError("display: use sfr, x or disassemble")
+    if head == "sfr":
+        if len(args) > 2:
+            raise ValueError("usage: display sfr [NAME]")
+    elif head == "x":
+        if len(args) < 3 or len(args) > 4 or args[1].lower() not in SPACES:
+            raise ValueError("usage: display x i|x|c ADDR [N]")
+        for text in args[2:]:
+            parse_int(text)
+    else:
+        if len(args) > 3:
+            raise ValueError("usage: display disassemble [N] [ADDR]")
+        for text in args[1:]:
+            parse_int(text)
     return [head, *args[1:]]
 
 

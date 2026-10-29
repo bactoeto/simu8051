@@ -285,6 +285,50 @@ class CLITests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parse_display([name])
 
+    def test_display_rejects_bad_arguments(self):
+        from simu8051.cli import parse_display
+
+        for args in (
+            ["x"],
+            ["x", "0x200", "0x100"],
+            ["x", "q", "0"],
+            ["x", "i", "0", "1", "2"],
+            ["disassemble", "x"],
+            ["disassemble", "1", "2", "3"],
+            ["sfr", "A", "B"],
+        ):
+            with self.assertRaises(ValueError, msg=args):
+                parse_display(args)
+
+    def test_invalid_display_is_not_registered(self):
+        proc = subprocess.run(
+            [sys.executable, "-m", "simu8051", str(FIXTURE)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            input="display x 0x200 0x100\ninfo display\nquit\n",
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("usage: display x i|x|c ADDR [N]", proc.stderr)
+        self.assertNotIn("1: [on]", proc.stdout)
+        self.assertNotIn("<display error:", proc.stdout)
+
+    def test_invalid_display_option_exits_cleanly(self):
+        proc = subprocess.run(
+            [
+                sys.executable, "-m", "simu8051", str(FIXTURE),
+                "--batch", "--display", "x 0x200 0x100",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            timeout=20,
+        )
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("usage: display x i|x|c ADDR [N]", proc.stderr)
+        self.assertNotIn("Traceback", proc.stderr)
+
     def test_register_changes_are_red(self):
         from unittest import mock
 
