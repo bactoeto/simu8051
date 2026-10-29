@@ -30,47 +30,84 @@ from .cli_shell import (
 )
 from .session import Session
 
-HELP_TEXT = """\
-Commands
+HELP_SECTIONS = (
+    (
+        "Execution",
+        (
+            ("run", "r", "[N]", "run N instructions or until a stop"),
+            ("step", "s", "[N]", "execute N instructions (default 1)"),
+            ("cycle", "cy", "[N]", "execute N machine cycles (default 1)"),
+            ("continue", "c", "", "continue after a stop"),
+            ("reset", "res", "[cold]", "reset; cold also clears IRAM/XDATA"),
+        ),
+    ),
+    (
+        "Breakpoints",
+        (
+            ("break", "b", "ADDR", "stop at PC ADDR"),
+            ("break cycle", "", "N", "stop at machine cycle N"),
+            ("delete", "del", "", "clear breakpoints"),
+            ("info", "i", "break|display", "list breakpoints or displays"),
+        ),
+    ),
+    (
+        "Inspection",
+        (
+            ("regs", "reg", "", "common registers"),
+            ("sfr", "sf", "[NAME]", "all SFRs, or one by name"),
+            ("x", "", "SPACE ADDR [N]", "dump; 8 per row, default 2 rows"),
+            ("w", "", "SPACE ADDR VALUE...", "write i, x or c"),
+            ("disassemble", "d", "[N] [ADDR]", "disassemble N instructions"),
+            ("display", "dp", "COMMAND...", "run a command after every command"),
+            ("undisplay", "und", "N", "remove a display item"),
+            ("enable", "on", "N", "enable a display item"),
+            ("disable", "off", "N", "disable a display item"),
+        ),
+    ),
+    (
+        "Other",
+        (
+            ("load", "l", "FILE", "load another HEX file"),
+            ("help", "h, ?", "", "show this text"),
+            ("quit", "q, exit", "", "leave the simulator"),
+        ),
+    ),
+)
 
-  Command              Aliases  Arguments            Description
-  --------------------------------------------------------------
+HELP_NOTES = (
+    ("Numbers", "decimal or 0x/0o/0b prefix"),
+    ("Spaces", "i = internal RAM | x = external RAM | c = ROM"),
+    ("Display", "sfr [NAME] | x SPACE ADDR [N] | disassemble [N] [ADDR]"),
+    ("Output", "current instruction and registers after every stop"),
+    ("Keys", "Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit"),
+)
 
-  Execution
-  run                  r        [N]                  run N instructions or until a stop
-  step                 s        [N]                  execute N instructions (default 1)
-  cycle                cy       [N]                  execute N machine cycles (default 1)
-  continue             c                             continue after a stop
-  reset                res      [cold]               reset; cold also clears IRAM/XDATA
 
-  Breakpoints
-  break                b        ADDR                 stop at PC ADDR
-  break cycle          N                             stop at machine cycle N
-  delete               del                           clear breakpoints
-  info                 i        break|display        list breakpoints or displays
+def _format_help() -> str:
+    rows = [row for _, section in HELP_SECTIONS for row in section]
+    command_width = max(19, len("Command"), *(len(row[0]) for row in rows))
+    alias_width = max(len("Aliases"), *(len(row[1]) for row in rows))
+    argument_width = max(len("Arguments"), *(len(row[2]) for row in rows))
+    header = (
+        f"  {'Command':<{command_width}}  {'Aliases':<{alias_width}}  "
+        f"{'Arguments':<{argument_width}}  Description"
+    )
+    lines = ["Commands", "", header, "  " + "-" * (len(header) - 2)]
+    for title, section in HELP_SECTIONS:
+        lines += ["", f"  {title}"]
+        for command, alias, arguments, description in section:
+            lines.append(
+                f"  {command:<{command_width}}  {alias:<{alias_width}}  "
+                f"{arguments:<{argument_width}}  {description}"
+            )
+    note_width = max(8, *(len(label) for label, _ in HELP_NOTES))
+    lines.append("")
+    for label, text in HELP_NOTES:
+        lines.append(f"  {label:<{note_width}}  {text}")
+    return "\n".join(line.rstrip() for line in lines) + "\n"
 
-  Inspection
-  regs                 reg                           common registers
-  sfr                  sf       [NAME]               all SFRs, or one by name
-  x                    SPACE ADDR [N]               dump; 8 per row, default 2 rows
-  w                    SPACE ADDR VALUE...          write i, x or c
-  disassemble          d        [N] [ADDR]           disassemble N instructions
-  display              dp       COMMAND...           run a command after every command
-  undisplay            und      N                    remove a display item
-  enable               on       N                    enable a display item
-  disable              off      N                    disable a display item
 
-  Other
-  load                 l        FILE                 load another HEX file
-  help                 h, ?                          show this text
-  quit                 q, exit                       leave the simulator
-
-  Numbers   decimal or 0x/0o/0b prefix
-  Spaces    i = internal RAM | x = external RAM | c = ROM
-  Display   sfr [NAME] | x SPACE ADDR [N] | disassemble [N] [ADDR]
-  Output    current instruction and registers after every stop
-  Keys      Tab complete | Up/Down history | Ctrl-L clear | Ctrl-C cancel | Ctrl-D quit
-"""
+HELP_TEXT = _format_help()
 
 
 def parse_int(text: str) -> int:

@@ -22,6 +22,25 @@ class CLITests(unittest.TestCase):
         for text in ("Command", "Aliases", "Arguments", "break cycle", "SPACE ADDR [N]", "Numbers", "Display"):
             self.assertIn(text, proc.stdout)
 
+    def test_help_columns_align(self):
+        from simu8051.cli import HELP_NOTES, HELP_TEXT
+
+        lines = HELP_TEXT.splitlines()
+        header = next(line for line in lines if line.startswith("  Command"))
+        alias_col = header.index("Aliases")
+        argument_col = header.index("Arguments")
+        description_col = header.index("Description")
+        note_prefixes = tuple(f"  {label}" for label, _ in HELP_NOTES)
+        for line in lines:
+            self.assertEqual(line, line.rstrip(), line)
+            if line.startswith("  ---") or line.startswith(note_prefixes):
+                continue
+            if len(line) <= description_col:
+                continue
+            self.assertEqual(line[alias_col - 1], " ", line)
+            self.assertEqual(line[argument_col - 1], " ", line)
+            self.assertEqual(line[description_col - 1], " ", line)
+
     def test_command_aliases(self):
         proc = subprocess.run(
             [sys.executable, "-m", "simu8051", str(FIXTURE)],
