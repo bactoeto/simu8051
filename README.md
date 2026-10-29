@@ -108,7 +108,7 @@ Ctrl-L to clear the screen.
 After every stop the CLI prints the current instruction and the register
 table. Each display command runs after every command (and once after a
 `--batch` run). Values that changed since the previous output are shown in
-blue; `reset` and `load` start a fresh baseline.
+red; `reset` and `load` start a fresh baseline.
 
 ## Layout
 

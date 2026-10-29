@@ -200,7 +200,7 @@ def parse_int(text: str) -> int:
     return int(text, 0)
 
 
-BLUE = "\033[94m"
+RED = "\033[91m"
 RESET = "\033[0m"
 
 REG_HEADERS = [
@@ -217,12 +217,12 @@ def use_color() -> bool:
 
 
 def paint(text: str, changed: bool, colour: bool | None = None) -> str:
-    """Wrap changed text in blue, leaving the width of the plain text intact."""
+    """Wrap changed text in red, leaving the width of the plain text intact."""
     if not changed:
         return text
     if colour is None:
         colour = use_color()
-    return f"{BLUE}{text}{RESET}" if colour else text
+    return f"{RED}{text}{RESET}" if colour else text
 
 
 def _table(

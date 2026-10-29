@@ -285,10 +285,10 @@ class CLITests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parse_display([name])
 
-    def test_register_changes_are_blue(self):
+    def test_register_changes_are_red(self):
         from unittest import mock
 
-        from simu8051.cli import BLUE, RESET, CLI
+        from simu8051.cli import RED, RESET, CLI
         from simu8051.session import Session
 
         session = Session.from_bytes(b"\x00")
@@ -299,14 +299,14 @@ class CLITests(unittest.TestCase):
             session.step()
             second = cli.registers()
         self.assertNotIn("\033", first)
-        self.assertIn(f"{BLUE}0x42{RESET}", second)
-        self.assertIn(f"{BLUE}0x0001{RESET}", second)  # PC changed
-        self.assertIn(f"{BLUE}1{RESET}", second)  # cycle changed
+        self.assertIn(f"{RED}0x42{RESET}", second)
+        self.assertIn(f"{RED}0x0001{RESET}", second)  # PC changed
+        self.assertIn(f"{RED}1{RESET}", second)  # cycle changed
 
     def test_display_marks_changed_bytes(self):
         from unittest import mock
 
-        from simu8051.cli import BLUE, RESET, CLI
+        from simu8051.cli import RED, RESET, CLI
         from simu8051.session import Session
 
         session = Session.from_bytes(b"\x00")
@@ -324,8 +324,8 @@ class CLITests(unittest.TestCase):
             cli.reset_baselines()
             third = cli.display_text(item)
         self.assertNotIn("\033", first)
-        self.assertEqual(second.count(BLUE), 1)
-        self.assertIn(f"{BLUE}5A{RESET}", second)
+        self.assertEqual(second.count(RED), 1)
+        self.assertIn(f"{RED}5A{RESET}", second)
         self.assertNotIn("\033", third)
 
     def test_colour_disabled_without_tty_or_no_color(self):
