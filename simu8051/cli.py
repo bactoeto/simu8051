@@ -230,10 +230,13 @@ def _table(headers: list[list[str]], values: list[list[str]]) -> str:
 
 def format_regs(session: Session) -> str:
     psw = session.get_sfr("PSW")
+    t0 = (session.get_sfr("TH0") << 8) | session.get_sfr("TL0")
+    t1 = (session.get_sfr("TH1") << 8) | session.get_sfr("TL1")
     headers = [
-        ["PC", "ACC", "B", "PSW", "SP", "DPTR", "cycle"],
+        ["PC", "ACC", "B", "PSW", "SP", "DPTR"],
         [f"R{i}" for i in range(8)],
         ["CY", "AC", "F0", "RS1", "RS0", "OV", "F1", "P"],
+        ["T0", "T1", "TMOD", "TCON", "cycle"],
     ]
     values = [
         [
@@ -243,19 +246,18 @@ def format_regs(session: Session) -> str:
             f"0x{psw:02X}",
             f"0x{session.get_sfr('SP'):02X}",
             f"0x{session.get_reg('DPTR'):04X}",
-            str(session.cycle),
         ],
         [f"0x{session.get_reg(f'R{i}'):02X}" for i in range(8)],
         [str((psw >> bit) & 1) for bit in range(7, -1, -1)],
+        [
+            f"0x{t0:04X}",
+            f"0x{t1:04X}",
+            f"0x{session.get_sfr('TMOD'):02X}",
+            f"0x{session.get_sfr('TCON'):02X}",
+            str(session.cycle),
+        ],
     ]
-    t0 = (session.get_sfr("TH0") << 8) | session.get_sfr("TL0")
-    t1 = (session.get_sfr("TH1") << 8) | session.get_sfr("TL1")
-    timers = (
-        f"T0=0x{t0:04X}  T1=0x{t1:04X}  "
-        f"TMOD=0x{session.get_sfr('TMOD'):02X}  "
-        f"TCON=0x{session.get_sfr('TCON'):02X}"
-    )
-    return f"{_table(headers, values)}\n{timers}"
+    return _table(headers, values)
 
 
 def format_sfr(session: Session, name: str) -> str:

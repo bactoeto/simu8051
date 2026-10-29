@@ -58,7 +58,7 @@ class CLITests(unittest.TestCase):
             timeout=20,
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("T0=0x", proc.stdout)
+        self.assertIn("T0", proc.stdout)
 
     def test_interactive_display_and_break(self):
         script = "step\ndisplay sfr TCON\nstep\nundisplay 1\nbreak 0x0033\ncontinue\nquit\n"
