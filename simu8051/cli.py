@@ -539,6 +539,7 @@ class CLI:
                 self.dispatch(line)
             except Exception as exc:
                 print(f"error: {exc}", file=sys.stderr)
+            print()
         stop = self.session.last_stop
         return 1 if stop is not None and stop.kind == "trap" else 0
 
