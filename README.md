@@ -39,25 +39,8 @@ result = session.run(max_cycles=100_000)
 print(session.pc, session.get_reg("A"), result.reason)
 ```
 
-[API.md](API.md) is the authoritative reference: construction, execution,
-limits, breakpoints, memory spaces, disassembly, plugins and errors.
-
-Quick reference:
-
-| Group | Members |
-|---|---|
-| Construction | `Session.open`, `Session.from_bytes`, `load`, `reset` |
-| State | `pc`, `cycle`, `halted`, `idle`, `last_stop`, `register_names`, `sfr_names` |
-| Execution | `step`, `step_cycle`, `run` |
-| Breakpoints | `break_at`, `break_at_cycle`, `clear_breakpoints`, `breakpoints_pc`, `breakpoints_cycle` |
-| Memory | `read`, `write` |
-| Registers | `get_reg` / `set_reg`, `get_sfr` / `set_sfr` |
-| Pins | `drive_pin`, `drive_port`, `release_pin` |
-| Program | `decode`, `disassemble`, `format`, `is_loaded` |
-| Plugins | `add_plugin`, `load_plugin`, `set_trace` |
-
-`step()` returns `StepResult`; `run()` returns `RunResult`. Both use
-`StopReason.kind` for programmatic decisions.
+[API.md](API.md) is the reference. `step()` returns `StepResult`; `run()`
+returns `RunResult`; use `StopReason.kind` in code.
 
 See [Plugins](#plugins) for the plugin API.
 
@@ -203,34 +186,9 @@ Programmatic plugins may subclass `Plugin` and be registered with
 `session.add_plugin()`. For editor support, annotate `ctx` as
 `from simu8051.session import PluginContext`.
 
-### Context API
-
-| Member | Meaning |
-|---|---|
-| `ctx.cycle` | current machine cycle |
-| `ctx.pc` | current program counter |
-| `ctx.read(space, addr)` | read one byte |
-| `ctx.write(space, addr, value)` | write one byte |
-| `ctx.get_reg(name)` / `ctx.set_reg(name, value)` | register access |
-| `ctx.get_sfr(name_or_addr)` / `ctx.set_sfr(name_or_addr, value)` | SFR access |
-| `ctx.drive_pin(port, bit, value)` | drive one external pin |
-| `ctx.release_pin(port, mask)` | release external drive |
-| `ctx.stop(reason)` | stop the session |
-
-Memory spaces:
-
-| Space | Meaning |
-|---|---|
-| `iram` | internal RAM, `0x00-0x7F` |
-| `sfr` | SFR latch, `0x80-0xFF` |
-| `direct` | direct address; port reads return pin level |
-| `xdata` | external data memory, `0x0000-0xFFFF` |
-| `code` | program memory, `0x0000-0xFFFF` |
-| `bit` | bit address, `0x00-0xFF` |
-
-Plugin writes take effect on the next machine cycle. Port latches and pin
-levels are separate; `drive_pin` changes the external drive only and leaves
-the latch unchanged.
+`ctx` exposes the cycle, PC, memory, registers, SFRs, pins and `stop()`.
+See [API.md](API.md#plugins) for the exact members. Plugin writes take effect
+on the next machine cycle.
 
 ## Tests
 
