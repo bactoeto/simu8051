@@ -15,10 +15,6 @@ try:
 except ImportError:  # Windows without pyreadline3
     _readline = None
 
-from . import hex as hexmod
-from .core import Core
-from .mem_table import SFR
-from .plugin import load_plugin
 from .session import Session
 
 COMMON_SFRS = [
@@ -62,9 +58,8 @@ def canonical(word: str) -> str:
     return ALIASES.get(word.lower(), word.lower())
 
 
-REG_NAMES = ("A", "B", "PSW", "SP", "DPL", "DPH", "DPTR", "PC", "R0", "R1",
-             "R2", "R3", "R4", "R5", "R6", "R7")
-SFR_NAMES = tuple(sorted(SFR))
+REG_NAMES = Session.register_names
+SFR_NAMES = Session.sfr_names
 SPACES = ("i", "x", "c")
 DISPLAY_KINDS = ("regs", "pc", "reg", "sfr", "mem", "bit")
 INFO_KINDS = ("break", "display")
@@ -207,8 +202,7 @@ def _table(headers: list[list[str]], values: list[list[str]]) -> str:
 
 
 def format_regs(session: Session) -> str:
-    core = session.core
-    psw = core.get_sfr("PSW")
+    psw = session.get_sfr("PSW")
     headers = [
         ["PC", "ACC", "B", "PSW", "SP", "DPTR", "cycle"],
         [f"R{i}" for i in range(8)],
@@ -217,60 +211,58 @@ def format_regs(session: Session) -> str:
     ]
     values = [
         [
-            f"0x{core.pc:04X}",
-            f"0x{core.get_reg('A'):02X}",
-            f"0x{core.get_reg('B'):02X}",
+            f"0x{session.pc:04X}",
+            f"0x{session.get_reg('A'):02X}",
+            f"0x{session.get_reg('B'):02X}",
             f"0x{psw:02X}",
-            f"0x{core.get_sfr('SP'):02X}",
-            f"0x{core.get_reg('DPTR'):04X}",
-            str(core.cycle),
+            f"0x{session.get_sfr('SP'):02X}",
+            f"0x{session.get_reg('DPTR'):04X}",
+            str(session.cycle),
         ],
-        [f"0x{core.get_reg(f'R{i}'):02X}" for i in range(8)],
+        [f"0x{session.get_reg(f'R{i}'):02X}" for i in range(8)],
         [str((psw >> bit) & 1) for bit in range(7, -1, -1)],
         [
-            f"0x{core.get_sfr('TH0'):02X}",
-            f"0x{core.get_sfr('TL0'):02X}",
-            f"0x{core.get_sfr('TH1'):02X}",
-            f"0x{core.get_sfr('TL1'):02X}",
-            f"0x{core.get_sfr('TMOD'):02X}",
-            f"0x{core.get_sfr('TCON'):02X}",
+            f"0x{session.get_sfr('TH0'):02X}",
+            f"0x{session.get_sfr('TL0'):02X}",
+            f"0x{session.get_sfr('TH1'):02X}",
+            f"0x{session.get_sfr('TL1'):02X}",
+            f"0x{session.get_sfr('TMOD'):02X}",
+            f"0x{session.get_sfr('TCON'):02X}",
         ],
     ]
     return _table(headers, values)
 
 
 def format_sfr(session: Session, name: str) -> str:
-    core = session.core
     try:
-        value = core.get_sfr(name)
+        value = session.get_sfr(name)
     except KeyError:
         return f"{name}=<unknown>"
     return f"{name}=0x{value:02X}"
 
 
 def format_mem(session: Session, space: str, address: int, count: int) -> str:
-    core = session.core
     digits = 4 if space in {"x", "c"} else 2
     mask = 0xFFFF if digits == 4 else 0xFF
     lines = []
     for offset in range(0, count, 8):
         row = [
-            f"{_read_space(core, space, (address + offset + i) & mask):02X}"
+            f"{_read_space(session, space, (address + offset + i) & mask):02X}"
             for i in range(min(8, count - offset))
         ]
         lines.append(f"0x{(address + offset) & mask:0{digits}X}: " + " ".join(row))
     return "\n".join(lines)
 
 
-def _read_space(core: Core, space: str, address: int) -> int:
+def _read_space(session: Session, space: str, address: int) -> int:
     if space == "c":
-        return core.read_code(address)
+        return session.read("code", address)
     if space == "i":
-        return core.read_indirect(address)
+        return session.read("iram", address)
     if space == "x":
-        return core.read_xdata(address)
+        return session.read("xdata", address)
     if space == "bit":
-        return core.read_bit(address)
+        return session.read("bit", address)
     raise ValueError(f"unknown space {space!r}")
 
 
@@ -279,7 +271,7 @@ def display_value(session: Session, item: tuple) -> str:
     if kind == "regs":
         return format_regs(session)
     if kind == "reg":
-        return f"{item[1]}=0x{session.core.get_reg(item[1]):02X}"
+        return f"{item[1]}=0x{session.get_reg(item[1]):02X}"
     if kind == "sfr":
         return format_sfr(session, item[1])
     if kind == "mem":
@@ -287,11 +279,8 @@ def display_value(session: Session, item: tuple) -> str:
     if kind == "bit":
         return format_mem(session, "bit", item[1], item[2])
     if kind == "pc":
-        text = ""
-        if session.image:
-            inst = hexmod.decode_at(session.image, session.core.pc)
-            text = hexmod.format_instruction(inst)
-        return f"PC=0x{session.core.pc:04X}  {text}".rstrip()
+        text = session.format(session.decode())
+        return f"PC=0x{session.pc:04X}  {text}".rstrip()
     return ""
 
 
@@ -349,9 +338,10 @@ class CLI:
         self.session = session
         self.displays = displays
         self.quit = False
+        self.trace_on = False
 
     def stop_display(self, result) -> None:
-        if result.reason:
+        if result.reason is not None:
             print(result.reason)
         print_displays(self.session, self.displays)
 
@@ -380,12 +370,10 @@ class CLI:
 
     def cmd_run(self, args: list[str]) -> None:
         max_instructions = parse_int(args[0]) if args else None
-        self.session.resume()
         result = self.session.run(max_instructions=max_instructions)
         self.stop_display(result)
 
     def cmd_continue(self) -> None:
-        self.session.resume()
         result = self.session.run()
         self.stop_display(result)
 
@@ -457,27 +445,16 @@ class CLI:
             raise ValueError("internal RAM is 0x00-0x7F")
         if space == "i" and address + len(values) > 0x80:
             raise ValueError("internal RAM is 0x00-0x7F")
+        target = {"i": "iram", "x": "xdata", "c": "code"}[space]
         for offset, value in enumerate(values):
-            addr = address + offset
-            if space == "i":
-                self.session.core.write_indirect(addr, value)
-            elif space == "x":
-                self.session.core.write_xdata(addr, value)
-            else:
-                self.session.core.write_code(addr, value)
-                if self.session.image is not None:
-                    self.session.image.code[addr & 0xFFFF] = value
+            self.session.write(target, address + offset, value)
         print(format_mem(self.session, space, address, len(values)))
 
     def cmd_dis(self, args: list[str]) -> None:
-        if not self.session.image:
-            print("no image")
-            return
-        address = parse_int(args[0]) if args else self.session.core.pc
+        address = parse_int(args[0]) if args else self.session.pc
         count = parse_int(args[1]) if len(args) > 1 else 8
-        insts = hexmod.disassemble(self.session.image, address, min(0x10000, address + count * 3))
-        for inst in insts[:count]:
-            print(f"{inst.address:04X}  {inst.raw.hex():<6} {hexmod.format_instruction(inst)}")
+        for inst in self.session.disassemble(address, count):
+            print(f"{inst.address:04X}  {inst.raw.hex():<6} {self.session.format(inst)}")
 
     def cmd_reset(self, args: list[str]) -> None:
         word = args[0].lower() if args else ""
@@ -488,10 +465,7 @@ class CLI:
     def cmd_load(self, args: list[str]) -> None:
         if not args:
             raise ValueError("usage: load FILE")
-        image = hexmod.load_hex(args[0])
-        self.session.image = image
-        self.session.core.load_image(image)
-        self.session.reset(cold=True)
+        self.session.load(args[0])
         print(f"loaded {args[0]}")
 
     def dispatch(self, line: str) -> None:
@@ -542,8 +516,9 @@ class CLI:
         elif cmd == "disable":
             self.cmd_toggle(args, False)
         elif cmd == "trace":
-            self.session.trace = bool(args and args[0].lower() in {"on", "1", "true"})
-            print("trace", "on" if self.session.trace else "off")
+            self.trace_on = bool(args and args[0].lower() in {"on", "1", "true"})
+            self.session.set_trace(print if self.trace_on else None)
+            print("trace", "on" if self.trace_on else "off")
         else:
             print(f"unknown command: {cmd}")
 
@@ -563,7 +538,8 @@ class CLI:
                 self.dispatch(line)
             except Exception as exc:
                 print(f"error: {exc}", file=sys.stderr)
-        return 1 if self.session.stop_reason and "reserved" in self.session.stop_reason else 0
+        stop = self.session.last_stop
+        return 1 if stop is not None and stop.kind == "trap" else 0
 
 
 def main(argv=None) -> int:
@@ -580,17 +556,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     try:
-        image = hexmod.load_hex(args.hexfile)
+        session = Session.open(args.hexfile)
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    core = Core()
-    core.load_image(image)
-    core.reset(cold=True)
-    session = Session(core=core, image=image)
-    session.trace = args.trace
-    session.trace_fn = lambda text: print(text)
+    session.set_trace(print if args.trace else None)
 
     for spec in args.breaks:
         if spec.lower().startswith("cycle:"):
@@ -611,18 +582,19 @@ def main(argv=None) -> int:
 
     try:
         for path in args.plugin:
-            session.plugins.append(load_plugin(path, session))
+            session.load_plugin(path)
     except Exception as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
     cli = CLI(session, displays)
+    cli.trace_on = args.trace
     if args.run or args.batch:
         result = session.run(max_cycles=args.max_cycles)
         cli.stop_display(result)
-        return 1 if result.reason and ("trap" in result.reason or "reserved" in result.reason) else 0
+        return 1 if result.reason.kind == "trap" else 0
 
-    print(f"loaded {args.hexfile}: 0x{image.min_addr or 0:04X}-0x{image.max_addr or 0:04X}")
+    print(f"loaded {args.hexfile}")
     return cli.loop()
 
 
