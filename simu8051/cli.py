@@ -534,6 +534,7 @@ class CLI:
             except EOFError:
                 print()
                 break
+            print()
             try:
                 self.dispatch(line)
             except Exception as exc:
