@@ -10,7 +10,7 @@ machine cycle, or stop the run.
 
 For editor/type-checker support, annotate the context parameter::
 
-    from simu8051.plugin import PluginContext
+    from simu8051.session import PluginContext
 
     def setup(ctx: PluginContext) -> None:
         ctx.write("iram", 0x20, 0x5A)
@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Optional, TypeAlias
 
 if TYPE_CHECKING:
-    from .core import Core
     from .session import Session
 
 Space: TypeAlias = Literal["code", "iram", "sfr", "direct", "xdata", "bit"]
@@ -60,12 +59,12 @@ class PluginContext:
     @property
     def cycle(self) -> int:
         """Current machine cycle number."""
-        return self._session.core.cycle
+        return self._session.cycle
 
     @property
     def pc(self) -> int:
         """Current program counter."""
-        return self._session.core.pc
+        return self._session.pc
 
     def read(self, space: Space, address: int) -> int:
         """Read one byte from a memory space.
@@ -74,64 +73,39 @@ class PluginContext:
         address (ports read the pin); ``xdata``: external RAM; ``code``:
         program memory; ``bit``: bit address.
         """
-        key = space.lower()
-        if key == "code":
-            return self._session.core.read_code(address)
-        if key == "iram":
-            return self._session.core.read_indirect(address)
-        if key == "sfr":
-            return self._session.core.read_latch(address)
-        if key == "direct":
-            return self._session.core.read_direct(address)
-        if key == "xdata":
-            return self._session.core.read_xdata(address)
-        if key == "bit":
-            return self._session.core.read_bit(address)
-        raise ValueError(f"unknown space {space!r}")
+        return self._session.read(space, address)
 
     def write(self, space: Space, address: int, value: int) -> None:
         """Write one byte to a memory space (see :meth:`read`)."""
-        key = space.lower()
-        if key == "code":
-            self._session.core.code[address & 0xFFFF] = value & 0xFF
-        elif key == "iram":
-            self._session.core.write_indirect(address, value)
-        elif key in {"sfr", "direct"}:
-            self._session.core.write_direct(address, value)
-        elif key == "xdata":
-            self._session.core.write_xdata(address, value)
-        elif key == "bit":
-            self._session.core.write_bit(address, value)
-        else:
-            raise ValueError(f"unknown space {space!r}")
+        self._session.write(space, address, value)
 
     def get_reg(self, name: str) -> int:
         """Read a register: A, B, PSW, SP, DPL, DPH, DPTR, PC, R0-R7."""
-        return self._session.core.get_reg(name)
+        return self._session.get_reg(name)
 
     def set_reg(self, name: str, value: int) -> None:
         """Write a register: A, B, PSW, SP, DPL, DPH, DPTR, PC, R0-R7."""
-        self._session.core.set_reg(name, value)
+        self._session.set_reg(name, value)
 
     def get_sfr(self, name_or_addr: str | int) -> int:
         """Read an SFR by name (``"P1"``) or address (``0x90``)."""
-        return self._session.core.get_sfr(name_or_addr)
+        return self._session.get_sfr(name_or_addr)
 
     def set_sfr(self, name_or_addr: str | int, value: int) -> None:
         """Write an SFR by name or address, including SFR side effects."""
-        self._session.core.set_sfr(name_or_addr, value)
+        self._session.set_sfr(name_or_addr, value)
 
     def drive_pin(self, port: int, bit: int, value: int) -> None:
         """Drive one external pin. ``port`` 0..3 or 0x80/0x90/0xA0/0xB0."""
-        self._session.core.drive_pin(port, bit, value)
+        self._session.drive_pin(port, bit, value)
 
     def release_pin(self, port: int, mask: int = 0xFF) -> None:
         """Release external drive for the selected pins."""
-        self._session.core.release_pin(port, mask)
+        self._session.release_pin(port, mask)
 
     def stop(self, reason: str = "plugin stop") -> None:
         """Request the session to stop."""
-        self._session.stop(reason)
+        self._session._request_stop(reason)
 
 
 HOOKS = ("setup", "on_cycle", "on_instruction", "on_interrupt", "on_stop")

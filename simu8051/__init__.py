@@ -1,22 +1,26 @@
-"""Intel 8051 cycle-level simulator."""
+"""Intel 8051 cycle-level simulator.
 
-from .core import Core, Event, Trap
-from .hex import HexError, Image, Instruction, decode_at, disassemble, load_hex
-from .plugin import Plugin, PluginContext
-from .session import Session, StepResult
+``simu8051.session`` is the public interface; everything else is internal.
+"""
+
+from .session import (
+    HexError,
+    Instruction,
+    Plugin,
+    PluginContext,
+    RunResult,
+    Session,
+    StepResult,
+    StopReason,
+)
 
 __all__ = [
-    "Core",
-    "Event",
-    "Trap",
-    "HexError",
-    "Image",
-    "Instruction",
-    "decode_at",
-    "disassemble",
-    "load_hex",
-    "Plugin",
-    "PluginContext",
     "Session",
     "StepResult",
+    "RunResult",
+    "StopReason",
+    "Plugin",
+    "PluginContext",
+    "Instruction",
+    "HexError",
 ]

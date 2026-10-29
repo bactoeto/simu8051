@@ -2,18 +2,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from simu8051 import hex as hx
-from simu8051.core import Core
-from simu8051.plugin import Plugin, PluginContext, load_plugin
-from simu8051.session import Session
+from simu8051.session import Plugin, PluginContext, Session
 
 
-def session_with(code, name="mem.hex"):
-    image = hx.Image()
-    image.write(0, bytes(code))
-    core = Core(image.code)
-    core.reset(cold=True)
-    return Session(core=core, image=image)
+def session_with(code):
+    return Session.from_bytes(bytes(code))
 
 
 class CountingPlugin(Plugin):
@@ -46,13 +39,13 @@ class LifecyclePlugin(Plugin):
         self.events.append(("stop", reason))
 
 
-class StepTests(unittest.TestCase):
+class SessionPluginTests(unittest.TestCase):
     def test_step_instruction_and_hooks(self):
         s = session_with([0x00, 0x04])
         p = CountingPlugin()
-        s.plugins.append(p)
+        s.add_plugin(p)
         s.step()
-        self.assertEqual(s.core.pc, 1)
+        self.assertEqual(s.pc, 1)
         self.assertEqual(p.cycles, 1)
         self.assertEqual(p.instructions, 1)
 
@@ -66,10 +59,10 @@ class StepTests(unittest.TestCase):
                     ctx.write("iram", 0x20, 0x5A)
                     seen["cycle"] = ctx.cycle
 
-        s.plugins.append(AtCycle())
+        s.add_plugin(AtCycle())
         s.step_cycle()
         s.step_cycle()
-        self.assertEqual(s.core.read_direct(0x20), 0x5A)
+        self.assertEqual(s.read("direct", 0x20), 0x5A)
         self.assertEqual(seen["cycle"], 2)
 
     def test_pc_breakpoint(self):
@@ -77,14 +70,15 @@ class StepTests(unittest.TestCase):
         s.break_at(1)
         s.step()
         r = s.step()
-        self.assertIn("breakpoint", r.reason)
-        self.assertEqual(s.core.pc, 1)
+        assert r.reason is not None
+        self.assertEqual(r.reason.kind, "pc_breakpoint")
+        self.assertEqual(s.pc, 1)
 
     def test_lifecycle_hooks(self):
         s = session_with([0x00, 0x00])
         p = LifecyclePlugin()
-        p.setup(PluginContext(s))  # load_plugin() does this automatically
-        s.plugins.append(p)
+        s.add_plugin(p)
+        self.assertEqual(p.events.count("setup"), 1)
         s.step()
         self.assertIn("cycle", p.events)
         self.assertEqual(p.instructions, ["NOP"])
@@ -95,20 +89,22 @@ class StepTests(unittest.TestCase):
         s = session_with([0x02, 0x00, 0x03, 0x00])
         s.break_at(3)
         first = s.run()
-        self.assertEqual(s.core.pc, 3)
-        self.assertIn("breakpoint", first.reason)
+        self.assertEqual(s.pc, 3)
+        assert first.reason is not None
+        self.assertEqual(first.reason.kind, "pc_breakpoint")
         second = s.step()
         self.assertEqual(second.cycles, 1)
-        self.assertEqual(s.core.pc, 4)
+        self.assertEqual(s.pc, 4)
 
     def test_step_after_breakpoint(self):
         s = session_with([0x00, 0x00])
         s.break_at(0)
         first = s.step()
-        self.assertIn("breakpoint", first.reason)
+        assert first.reason is not None
+        self.assertEqual(first.reason.kind, "pc_breakpoint")
         second = s.step()
         self.assertEqual(second.cycles, 1)
-        self.assertEqual(s.core.pc, 1)
+        self.assertEqual(s.pc, 1)
 
     def test_load_function_plugin(self):
         with tempfile.TemporaryDirectory() as d:
@@ -119,10 +115,9 @@ class StepTests(unittest.TestCase):
                 "        ctx.write('iram', 0x21, 0x77)\n"
             )
             s = session_with([0x00, 0x00])
-            p = load_plugin(path, s)
-            s.plugins.append(p)
+            s.load_plugin(path)
             s.step()
-            self.assertEqual(s.core.read_direct(0x21), 0x77)
+            self.assertEqual(s.read("direct", 0x21), 0x77)
 
     def test_load_hook_functions(self):
         with tempfile.TemporaryDirectory() as d:
@@ -137,8 +132,7 @@ class StepTests(unittest.TestCase):
                 "    calls.append('stop')\n"
             )
             s = session_with([0x00, 0x00])
-            p = load_plugin(path, s)
-            s.plugins.append(p)
+            p = s.load_plugin(path)
             s.step()
             s.run(max_instructions=1)
             calls = getattr(p, "_module").calls
@@ -151,14 +145,14 @@ class StepTests(unittest.TestCase):
             path = Path(d) / "plug.py"
             path.write_text("x = 1\n")
             with self.assertRaises(ImportError):
-                load_plugin(path, session_with([0x00]))
+                session_with([0x00]).load_plugin(path)
 
     def test_class_plugin_is_rejected(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "plug.py"
             path.write_text("class Stimulus:\n    pass\n")
             with self.assertRaises(ImportError):
-                load_plugin(path, session_with([0x00]))
+                session_with([0x00]).load_plugin(path)
 
 
 if __name__ == "__main__":
